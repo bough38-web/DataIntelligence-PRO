@@ -1,0 +1,5 @@
+PySide6
+pandas
+openpyxl
+lxml
+pywin32; sys_platform == 'win32'
