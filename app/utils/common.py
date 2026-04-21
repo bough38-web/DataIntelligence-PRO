@@ -103,8 +103,16 @@ def fill_service_small_from_mid(df):
 
 def is_html_content(file_path):
     try:
-        with open(file_path, "rb") as f:
-            raw = f.read(65536).lower()
+        if isinstance(file_path, str):
+            if not os.path.exists(file_path): return False
+            with open(file_path, "rb") as f:
+                raw = f.read(65536).lower()
+        else:
+            # Assume it's a file-like object (BytesIO)
+            pos = file_path.tell()
+            raw = file_path.read(65536).lower()
+            file_path.seek(pos) # Reset position
+            
         markers = [
             b"<html", b"<table", b"<!doctype html", b"<head", b"<body",
             b"<meta", b"<tr", b"<td", b"<th"
@@ -114,7 +122,7 @@ def is_html_content(file_path):
         return False
 
 def is_file_locked(file_path):
-    if not os.path.exists(file_path):
+    if not isinstance(file_path, str) or not os.path.exists(file_path):
         return False
     try:
         # On Windows, opening in 'ab' or 'r+' with exclusive access fails if open in Excel

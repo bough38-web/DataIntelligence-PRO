@@ -62,7 +62,8 @@ def read_xlsx_header_fast(file_path, sheet_name=None, scan_rows=200):
     return header, header_idx
 
 def get_sheet_names(file_path):
-    ext = os.path.splitext(file_path)[1].lower()
+    name = file_path if isinstance(file_path, str) else getattr(file_path, "name", "")
+    ext = os.path.splitext(name)[1].lower()
     if ext in [".xlsx", ".xlsm"] and not is_html_content(file_path):
         try:
             wb = load_workbook(file_path, read_only=True, data_only=True)
@@ -74,7 +75,8 @@ def get_sheet_names(file_path):
     return []
 
 def extract_columns_fast(file_path, sheet_name=None, header_row_idx=None, force_html=False):
-    ext = os.path.splitext(file_path)[1].lower()
+    name = file_path if isinstance(file_path, str) else getattr(file_path, "name", "")
+    ext = os.path.splitext(name)[1].lower()
 
     if ext == ".csv" and not force_html:
         header, _, _ = read_csv_header_fast(file_path, scan_rows=200)
@@ -129,7 +131,8 @@ def extract_columns_fast(file_path, sheet_name=None, header_row_idx=None, force_
     return []
 
 def load_file_to_df(file_path, sheet_name=None, header_row_idx=None, force_html=False):
-    ext = os.path.splitext(file_path)[1].lower()
+    name = file_path if isinstance(file_path, str) else getattr(file_path, "name", "")
+    ext = os.path.splitext(name)[1].lower()
 
     if ext == ".csv" and not force_html:
         _, _, enc = read_csv_header_fast(file_path, scan_rows=200)
@@ -249,33 +252,48 @@ def read_open_excel_sheet_rows(workbook_name, sheet_name, max_rows=None):
         if target_wb is None:
             raise RuntimeError("열려있는 워크북을 찾지 못했습니다.")
         ws = target_wb.Worksheets(sheet_name)
-        used = ws.UsedRange
-        values = used.Value
+        
+        if max_rows:
+            # Optimize: only read up to max_rows
+            values = ws.Range(ws.Cells(1, 1), ws.Cells(max_rows, ws.UsedRange.Columns.Count)).Value
+        else:
+            values = ws.UsedRange.Value
+            
         rows = _normalize_excel_value_matrix(values)
         rows = _trim_rows_to_used_content(rows)
         return rows
     finally:
         pythoncom.CoUninitialize()
 def load_file_sample_rows(file_path, sheet_name=None, force_html=False, max_rows=100):
-    ext = os.path.splitext(file_path)[1].lower()
+    name = file_path if isinstance(file_path, str) else getattr(file_path, "name", "")
+    ext = os.path.splitext(name)[1].lower()
     if ext == ".csv" and not force_html:
-        _, _, enc = read_csv_header_fast(file_path)
-        df = pd.read_csv(file_path, nrows=max_rows, header=None, dtype=str, encoding=enc)
-        return df.values.tolist()
+        try:
+            _, _, enc = read_csv_header_fast(file_path)
+            df = pd.read_csv(file_path, nrows=max_rows, header=None, dtype=str, encoding=enc)
+            return df.values.tolist()
+        except:
+            return []
     if force_html or ext in [".html", ".htm"] or (ext == ".xls" and is_html_content(file_path)):
-        tables = pd.read_html(file_path, header=None)
-        if not tables: return []
-        df = pd.concat(tables, ignore_index=True).head(max_rows)
-        return df.values.tolist()
+        try:
+            tables = pd.read_html(file_path, header=None)
+            if not tables: return []
+            df = pd.concat(tables, ignore_index=True).head(max_rows)
+            return df.values.tolist()
+        except:
+            return []
     if ext in [".xlsx", ".xlsm"]:
-        wb = load_workbook(file_path, read_only=True, data_only=True)
-        ws = wb[sheet_name] if sheet_name and sheet_name in wb.sheetnames else wb[wb.sheetnames[0]]
-        rows = []
-        for i, row in enumerate(ws.iter_rows(values_only=True)):
-            rows.append(list(row))
-            if i >= max_rows: break
-        wb.close()
-        return rows
+        try:
+            wb = load_workbook(file_path, read_only=True, data_only=True)
+            ws = wb[sheet_name] if sheet_name and sheet_name in wb.sheetnames else wb[wb.sheetnames[0]]
+            rows = []
+            for i, row in enumerate(ws.iter_rows(values_only=True)):
+                rows.append(list(row))
+                if i >= max_rows: break
+            wb.close()
+            return rows
+        except:
+            return []
     return []
 
 def load_open_excel_sheet_df(workbook_name, sheet_name, max_rows=None, header_row_idx=None):
