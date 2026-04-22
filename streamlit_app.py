@@ -3,11 +3,13 @@ import pandas as pd
 import numpy as np
 import io
 import json
+import json
 import uuid
 import difflib
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from app.core import database
 
 # ==========================================
 # 1. 시스템 아키텍처 및 설정 (System Architecture)
@@ -18,24 +20,7 @@ if str(ROOT_DIR) not in sys.path: sys.path.append(str(ROOT_DIR))
 # 데이터 영속성 (SaaS Level Persistence)
 AUTH_DIR = Path.home() / ".dataintelligence_pro"
 AUTH_DIR.mkdir(parents=True, exist_ok=True)
-SETTINGS_FILE, USERS_FILE, LOGS_FILE = AUTH_DIR/"auth_settings.json", AUTH_DIR/"users.json", AUTH_DIR/"logs.json"
-
-def load_json(path, default):
-    if not path.exists(): return default
-    try:
-        with open(path, "r", encoding="utf-8") as f: return json.load(f)
-    except: return default
-
-def save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f: json.dump(data, f, indent=4, ensure_ascii=False)
-
-def add_log(user_name, action, details=""):
-    logs = load_json(LOGS_FILE, [])
-    logs.append({
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "user": user_name, "action": action, "details": details
-    })
-    save_json(LOGS_FILE, logs[-2000:])
+SETTINGS_FILE = AUTH_DIR/"auth_settings.json"
 
 # --- Core Handler Integration ---
 try:
@@ -210,10 +195,28 @@ def show_landing():
             
             st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
             
-            # 실제 데이터베이스 로드
-            users = load_json(USERS_FILE, [])
-            settings = load_json(SETTINGS_FILE, {"master_password": "0303"})
+            # 설정 파일 연동
+            settings = {"master_password": "0303"}
+            if SETTINGS_FILE.exists():
+                try:
+                    with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                        settings = json.load(f)
+                except: pass
             
+            if mode == "사용자 접속":
+                name = st.text_input("NAME", placeholder="Full Name", label_visibility="collapsed")
+                key = st.text_input("LICENSE", type="password", placeholder="License Key", label_visibility="collapsed")
+                if st.button("Sign In to Workspace", use_container_width=True):
+                    u = database.get_user_by_license(name, key)
+                    if u:
+                        if datetime.strptime(u["expiry"], "%Y-%m-%d") < datetime.now(): 
+                            st.error("만료된 라이선스입니다.")
+                        else:
+                            st.session_state.authenticated, st.session_state.user_role, st.session_state.current_user = True, "user", u
+                            database.add_log(name, "Login Success")
+                            st.rerun()
+                    else: 
+                        st.error("인증 정보가 올바르지 않습니다.")
             elif mode == "관리자 모드":
                 pwd = st.text_input("ADMIN PWD", type="password", placeholder="Master Password", label_visibility="collapsed")
                 if st.button("Authenticate System", use_container_width=True):
@@ -221,7 +224,7 @@ def show_landing():
                         st.session_state.authenticated = True
                         st.session_state.user_role = "admin"
                         st.session_state.current_user = {"name": "ADMIN"}
-                        add_log("ADMIN", "System Unlock")
+                        database.add_log("ADMIN", "System Unlock")
                         st.rerun()
                     else:
                         st.error("Invalid Credential")
@@ -233,19 +236,13 @@ def show_landing():
                     if len(reg_name) < 2 or len(reg_phone) < 10:
                         st.error("올바른 이름과 연락처를 입력해주세요.")
                     else:
-                        if any(x.get("phone") == reg_phone for x in users):
+                        if database.get_user_by_phone(reg_phone):
                             st.error("이미 무료체험이 등록된 연락처입니다.")
                         else:
                             key = str(uuid.uuid4())[:8].upper()
                             expiry = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
-                            users.append({
-                                "name": reg_name,
-                                "phone": reg_phone,
-                                "license": key,
-                                "expiry": expiry
-                            })
-                            save_json(USERS_FILE, users)
-                            add_log(reg_name, "Registered (7-day trial)")
+                            database.create_user(reg_name, reg_phone, key, expiry)
+                            database.add_log(reg_name, "Registered (7-day trial)")
                             st.success(f"가입 완료! 아래 발급된 키를 복사해 주세요.\\n\\n### `{key}`\\n\\n위 키를 복사한 후 '사용자 접속' 탭에서 로그인하세요.")
         
         # 하단 푸터
@@ -296,25 +293,30 @@ def show_main_app():
                     c2.text_input("CVC", type="password", placeholder="***")
                     st.text_input("카드 비밀번호 앞 2자리", type="password", placeholder="**")
                     
-                    if st.form_submit_button("💳 안전하게 결제하기", use_container_width=True):
+                    if st.form_submit_button("💳 토스페이먼츠 안전결제", use_container_width=True):
                         days_to_add = 30 if "1개월" in plan else (180 if "6개월" in plan else 365)
+                        amount = 39000 if "1개월" in plan else (190000 if "6개월" in plan else 350000)
                         
                         # DB에서 유저 정보 업데이트
-                        us = load_json(USERS_FILE, [])
-                        for u in us:
-                            if u["license"] == user["license"]:
-                                current_expiry = datetime.strptime(u["expiry"], "%Y-%m-%d")
-                                # 이미 만료된 경우 현재 시간 기준으로 연장
-                                if current_expiry < datetime.now():
-                                    current_expiry = datetime.now()
-                                new_expiry = current_expiry + timedelta(days=days_to_add)
-                                u["expiry"] = new_expiry.strftime("%Y-%m-%d")
-                                
-                                # 세션 강제 업데이트
-                                st.session_state.current_user["expiry"] = u["expiry"]
-                                save_json(USERS_FILE, us)
-                                add_log(user["name"], f"Purchased {days_to_add} days")
-                                break
+                        u = database.get_user_by_license(user["name"], user["license"])
+                        if u:
+                            current_expiry = datetime.strptime(u["expiry"], "%Y-%m-%d")
+                            if current_expiry < datetime.now():
+                                current_expiry = datetime.now()
+                            new_expiry = current_expiry + timedelta(days=days_to_add)
+                            new_expiry_str = new_expiry.strftime("%Y-%m-%d")
+                            
+                            # SQLite DB 업데이트
+                            database.update_user_expiry(user["license"], new_expiry_str)
+                            
+                            # 결제 기록 저장 (토스 모의 결제 키 발급)
+                            payment_key = f"toss_mock_{uuid.uuid4().hex[:8]}"
+                            order_id = f"order_{uuid.uuid4().hex[:12]}"
+                            database.record_payment(u["id"], amount, payment_key, order_id, plan)
+                            database.add_log(user["name"], f"Purchased {plan} ({amount} KRW)")
+                            
+                            # 세션 강제 업데이트
+                            st.session_state.current_user["expiry"] = new_expiry_str
                         
                         st.success(f"결제가 성공적으로 처리되었습니다! 라이선스가 {days_to_add}일 연장되었습니다.")
                         st.balloons()
@@ -388,28 +390,47 @@ def show_main_app():
 
     if st.session_state.user_role == "admin":
         with tabs[-1]:
-            st.subheader("🕵️‍♂️ 모니터링 & 라이선스 관리")
+            st.subheader("🕵️‍♂️ 관리자 대시보드 (KPI & 사용자 제어)")
+            
+            # 메트릭 대시보드
+            metrics = database.get_metrics()
+            col1, col2, col3 = st.columns(3)
+            col1.metric("총 결제 수익 (KRW)", f"₩{metrics['revenue']:,}")
+            col2.metric("활성 사용자 (Active)", f"{metrics['active_users']}명")
+            col3.metric("누적 사용자 (Total)", f"{metrics['total_users']}명")
+            
+            st.divider()
+            
             with st.form("add"):
                 c1, c2, c3 = st.columns(3)
                 u_n, u_p, u_d = c1.text_input("성함"), c2.text_input("연락처"), c3.number_input("일수", 30)
-                if st.form_submit_button("✅ 신규 사용자 등록"):
+                if st.form_submit_button("✅ 신규 사용자 발급"):
                     key = str(uuid.uuid4())[:8].upper()
-                    us = load_json(USERS_FILE, [])
-                    us.append({"name":u_n, "phone":u_p, "license":key, "expiry":(datetime.now()+timedelta(days=u_d)).strftime("%Y-%m-%d")})
-                    save_json(USERS_FILE, us)
+                    expiry = (datetime.now() + timedelta(days=int(u_d))).strftime("%Y-%m-%d")
+                    database.create_user(u_n, u_p, key, expiry)
+                    database.add_log("ADMIN", f"Issued new license for {u_n}")
                     st.success(f"[{u_n}] 등록 키: {key}"); st.rerun()
             
-            us = load_json(USERS_FILE, [])
-            for i, u in enumerate(us):
-                col_i, col_a = st.columns([4, 1])
-                col_i.write(f"**{u['name']}** | `{u['license']}` | 만료: {u['expiry']}")
-                with col_a:
-                    b1, b2 = st.columns(2)
-                    if b1.button("연장", key=f"e_{i}"):
-                        u["expiry"] = (datetime.strptime(u["expiry"], "%Y-%m-%d")+timedelta(days=30)).strftime("%Y-%m-%d")
-                        save_json(USERS_FILE, us); st.rerun()
-                    if b2.button("삭제", key=f"d_{i}"):
-                        us.pop(i); save_json(USERS_FILE, us); st.rerun()
+            st.markdown("#### 👥 실시간 회원 관리")
+            users_list = database.get_all_users()
+            if users_list:
+                df = pd.DataFrame(users_list)
+                df = df[['id', 'name', 'phone', 'license', 'expiry', 'role', 'created_at']]
+                
+                # data_editor로 시각화 (수정은 막아두고 UI만)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+                
+                st.markdown("##### 🛠 수동 연장 컨트롤")
+                col_i, col_a = st.columns([3, 1])
+                target_license = col_i.selectbox("사용자 라이선스 선택", [u['license'] for u in users_list])
+                if col_a.button("선택 회원 30일 연장", use_container_width=True):
+                    for u in users_list:
+                        if u['license'] == target_license:
+                            current = datetime.strptime(u['expiry'], "%Y-%m-%d")
+                            if current < datetime.now(): current = datetime.now()
+                            database.update_user_expiry(target_license, (current + timedelta(days=30)).strftime("%Y-%m-%d"))
+                            database.add_log("ADMIN", f"Extended license {target_license} by 30 days")
+                            st.success("연장 완료!"); st.rerun()
 
 def main():
     if 'authenticated' not in st.session_state: st.session_state.authenticated = False
