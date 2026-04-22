@@ -251,7 +251,35 @@ def show_main_app():
     
     with st.sidebar:
         st.markdown(f"### 💎 Data Intel PRO")
-        st.info(f"User: {st.session_state.current_user.get('name')}")
+        
+        user = st.session_state.current_user
+        role = st.session_state.user_role
+        
+        st.info(f"👤 접속자: {user.get('name')}")
+        
+        if role == "user":
+            expiry_str = user.get("expiry", "")
+            if expiry_str:
+                try:
+                    expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
+                    days_left = (expiry_date - datetime.now()).days
+                    if days_left <= 7:
+                        st.warning(f"⏳ 만료 예정: {expiry_str} (D-{days_left})\\n\\n기간이 얼마 남지 않았습니다.")
+                    else:
+                        st.success(f"✅ 라이선스 유효: ~{expiry_str} (D-{days_left})")
+                except:
+                    pass
+            
+            with st.expander("💬 라이선스 연장 문의"):
+                st.markdown("**[ 이메일 문의 ]**")
+                st.code("bough38@gmail.com")
+                st.markdown("**[ 카카오톡 문의 ]**")
+                # QR API를 사용하여 임시로 카카오톡/이메일 연락처 QR 표시
+                qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=mailto:bough38@gmail.com"
+                st.image(qr_url, caption="QR 코드를 스캔해주세요", width=150)
+                st.caption("연장 및 추가 문의는 위 연락처로 부탁드립니다.")
+                
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.authenticated = False
             st.rerun()
