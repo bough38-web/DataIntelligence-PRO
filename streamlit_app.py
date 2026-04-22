@@ -159,30 +159,28 @@ def main():
             - **멀티 포맷 내보내기 (Multi-Export)**: 인코딩 깨짐 없는 깨끗한 엑셀(XLSX) 및 CSV 파일을 즉시 생성합니다.
             """)
         with c2:
-            # Embedded SVG Illustration (Guaranteed to work without external URL)
-            st.markdown("""
-                <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
-                    <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" style="max-width: 100%; height: auto; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));">
-                        <rect x="50" y="50" width="400" height="300" rx="20" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
-                        <circle cx="100" cy="90" r="10" fill="#ff5f56"/>
-                        <circle cx="130" cy="90" r="10" fill="#ffbd2e"/>
-                        <circle cx="160" cy="90" r="10" fill="#27c93f"/>
-                        
-                        <rect x="80" y="140" width="340" height="20" rx="10" fill="#e2e8f0"/>
-                        <rect x="80" y="180" width="280" height="20" rx="10" fill="#cbd5e1"/>
-                        <rect x="80" y="220" width="310" height="20" rx="10" fill="#94a3b8"/>
-                        
-                        <path d="M100 350 L100 250 L180 280 L260 220 L340 260 L420 180" stroke="#2563eb" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="100" cy="250" r="6" fill="#1e40af"/>
-                        <circle cx="180" cy="280" r="6" fill="#1e40af"/>
-                        <circle cx="260" cy="220" r="6" fill="#1e40af"/>
-                        <circle cx="340" cy="260" r="6" fill="#1e40af"/>
-                        <circle cx="420" cy="180" r="6" fill="#1e40af"/>
-                        
-                        <text x="250" y="380" text-anchor="middle" font-family="Pretendard, sans-serif" font-weight="800" fill="#2563eb" font-size="18">Next-Gen Analytics Engine</text>
-                    </svg>
-                </div>
-            """, unsafe_allow_html=True)
+            # Using HTML component to guarantee SVG rendering (No more text output)
+            svg_code = """
+            <div style="display: flex; justify-content: center;">
+                <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 400px; height: auto; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));">
+                    <rect x="50" y="50" width="400" height="300" rx="20" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
+                    <circle cx="100" cy="90" r="10" fill="#ff5f56"/>
+                    <circle cx="130" cy="90" r="10" fill="#ffbd2e"/>
+                    <circle cx="160" cy="90" r="10" fill="#27c93f"/>
+                    <rect x="80" y="140" width="340" height="20" rx="10" fill="#e2e8f0"/>
+                    <rect x="80" y="180" width="280" height="20" rx="10" fill="#cbd5e1"/>
+                    <rect x="80" y="220" width="310" height="20" rx="10" fill="#94a3b8"/>
+                    <path d="M100 350 L100 250 L180 280 L260 220 L340 260 L420 180" stroke="#2563eb" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="100" cy="250" r="6" fill="#1e40af"/>
+                    <circle cx="180" cy="280" r="6" fill="#1e40af"/>
+                    <circle cx="260" cy="220" r="6" fill="#1e40af"/>
+                    <circle cx="340" cy="260" r="6" fill="#1e40af"/>
+                    <circle cx="420" cy="180" r="6" fill="#1e40af"/>
+                    <text x="250" y="380" text-anchor="middle" font-family="sans-serif" font-weight="800" fill="#2563eb" font-size="20">Intelligence Engine</text>
+                </svg>
+            </div>
+            """
+            st.components.v1.html(svg_code, height=400)
 
     # --- Smart Matching ---
     with tabs[1]:
