@@ -4,66 +4,125 @@ import numpy as np
 import os
 import io
 import time
-from app.core.handlers import load_file_to_df, get_sheet_names, extract_columns_fast, extract_unique_values_fast
-from app.core.processors import apply_advanced_conditions, fill_service_small_from_mid, apply_sorting, apply_dedup
+import json
+from datetime import datetime, timedelta
+from pathlib import Path
+from app.core.handlers import load_file_to_df, get_sheet_names
+from app.core.processors import fill_service_small_from_mid, apply_sorting, apply_dedup
 from app.utils.common import clean_text
+
+# --- Paths & Persistence ---
+AUTH_DIR = Path.home() / ".dataintelligence_pro"
+AUTH_DIR.mkdir(parents=True, exist_ok=True)
+SETTINGS_FILE = AUTH_DIR / "auth_settings.json"
+USERS_FILE = AUTH_DIR / "users.json"
+
+DEFAULT_SETTINGS = {"master_password": "0303"}
+DEFAULT_USERS = []
+
+# --- Data Persistence Helpers ---
+def load_json(path, default):
+    if not path.exists():
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(default, f)
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except: return default
+
+def save_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Data Intelligence PRO | Enterprise Edition",
+    page_title="Data Intelligence PRO | Enterprise",
     page_icon="💎",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# --- Premium Custom Styling ---
+# --- Session State ---
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'user_role' not in st.session_state:
+    st.session_state.user_role = "user"
+if 'current_user' not in st.session_state:
+    st.session_state.current_user = None
+
+# --- Premium Styling ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800;900&display=swap');
     * { font-family: 'Pretendard', sans-serif; }
-    .stApp { background-color: #fcfdfe; }
-    [data-testid="stSidebar"] { background-color: #0c111d; border-right: 1px solid #1f2937; }
-    .premium-card {
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        padding: 2rem;
-        border-radius: 24px;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
-        border: 1px solid #edf2f7;
-        margin-bottom: 2rem;
-    }
-    .expert-badge {
-        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        color: #1e40af;
-        padding: 8px 16px;
-        border-radius: 12px;
-        font-size: 0.85rem;
-        font-weight: 700;
-        border: 1px solid #bfdbfe;
-    }
-    .stButton>button {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    
+    .stApp { background-color: #f8fafc; }
+    
+    .hero-section {
+        text-align: center;
+        padding: 80px 40px;
+        background: radial-gradient(circle at top right, #1e293b, #0f172a);
         color: white;
-        border: none;
-        padding: 14px 28px;
-        border-radius: 14px;
-        font-weight: 700;
-        width: 100%;
+        border-radius: 40px;
+        margin-bottom: 40px;
+        box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3);
     }
-    .utility-button>button {
-        background: #f1f5f9;
-        color: #475569;
-        padding: 5px 10px;
-        font-size: 0.8rem;
-        border: 1px solid #e2e8f0;
-        width: auto;
-    }
+    
     .hero-title {
-        font-size: 3.5rem;
+        font-size: 4.5rem;
         font-weight: 900;
-        background: linear-gradient(135deg, #111827 0%, #2563eb 100%);
+        letter-spacing: -2px;
+        background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        margin-bottom: 15px;
+    }
+    
+    .login-container {
+        max-width: 460px;
+        margin: -100px auto 50px;
+        padding: 45px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 32px;
+        box-shadow: 0 30px 60px -12px rgba(0,0,0,0.15);
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+    
+    .premium-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 24px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        border: 1px solid #f1f5f9;
+        margin-bottom: 1.5rem;
+    }
+    
+    .stButton>button {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        color: white;
+        border: none;
+        padding: 14px;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px rgba(37,99,235,0.4);
+    }
+    
+    .expert-badge {
+        background: #eff6ff;
+        color: #1e40af;
+        padding: 6px 14px;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        display: inline-block;
+        margin-right: 8px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -75,227 +134,216 @@ def convert_df_to_excel(df):
         df.to_excel(writer, index=False, sheet_name='Sheet1')
     return output.getvalue()
 
-# --- App Logic ---
-def main():
-    with st.sidebar:
-        st.markdown("### 💎 Data Intel PRO")
-        st.divider()
-        st.markdown("#### ⚙️ 시스템 상태")
-        st.info("🚀 AI-Optimized Core Enabled")
-        st.info("🛰 Cloud Data Sync Active")
-        st.divider()
-        st.caption("v2.5.5 | Enterprise Edition")
+# --- Auth Modules ---
 
-    st.markdown('<h1 class="hero-title">Data Intelligence PRO</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="font-size: 1.2rem; color: #64748b; margin-bottom: 2rem;">데이터 통합 및 정밀 가공을 위한 스마트 워크플로우</p>', unsafe_allow_html=True)
-    
-    tabs = st.tabs([
-        "🏠 대시보드 (Dashboard)", 
-        "🔗 스마트 매칭 (Smart Matching)", 
-        "📄 정밀 추출 (Precision Extract)", 
-        "📂 스마트 병합 (Smart Merge)", 
-        "📊 심층 분석 (Deep Insight)", 
-        "🛠 데이터 변환 (Transformation)"
-    ])
-    
-    # --- Dashboard ---
-    with tabs[0]:
-        st.markdown("""
-        <div class="premium-card">
-            <h2 style="color: #0f172a; font-weight: 800;">🚀 엔터프라이즈 통합 워크플로우</h2>
-            <p style="color: #475569; font-size: 1.1rem;">직관적인 인터페이스로 복잡한 데이터 업무를 해결하세요.</p>
+def show_landing():
+    st.markdown("""
+        <div class="hero-section">
+            <h1 class="hero-title">Data Intelligence PRO</h1>
+            <p style="font-size: 1.3rem; color: #94a3b8; max-width: 700px; margin: 0 auto;">
+                인공지능 기반의 정밀 데이터 엔진. 복잡한 엑셀 수식과 반복 업무를 혁신적인 워크플로우로 자동화합니다.
+            </p>
         </div>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: #0f172a; margin-bottom: 30px;'>보안 접속 (Security Login)</h2>", unsafe_allow_html=True)
         
-        c1, c2 = st.columns([3, 2])
-        with c1:
-            st.markdown("""
-            #### 🌟 핵심 전문가 기법
-            - **스마트 매칭**: 수만 건의 데이터를 지능적으로 결합
-            - **정밀 추출**: 정규식 기반 패턴 필터링
-            - **결측치 추론**: 상위 카테고리 기반 하위 데이터 자동 채움
-            - **멀티 포맷 내보내기**: 엑셀(XLSX) 및 CSV 즉시 생성
-            """)
-        with c2:
-            svg_code = """
-            <div style="display: flex; justify-content: center;">
-                <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 400px; height: auto; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));">
-                    <rect x="50" y="50" width="400" height="300" rx="20" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2"/>
-                    <circle cx="100" cy="90" r="10" fill="#ff5f56"/><circle cx="130" cy="90" r="10" fill="#ffbd2e"/><circle cx="160" cy="90" r="10" fill="#27c93f"/>
-                    <rect x="80" y="140" width="340" height="20" rx="10" fill="#e2e8f0"/>
-                    <rect x="80" y="180" width="280" height="20" rx="10" fill="#cbd5e1"/>
-                    <rect x="80" y="220" width="310" height="20" rx="10" fill="#94a3b8"/>
-                    <path d="M100 350 L100 250 L180 280 L260 220 L340 260 L420 180" stroke="#2563eb" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                    <text x="250" y="380" text-anchor="middle" font-family="sans-serif" font-weight="800" fill="#2563eb" font-size="20">Intelligence Engine</text>
-                </svg>
-            </div>
-            """
-            st.components.v1.html(svg_code, height=400)
+        login_tab = st.radio("로그인 방식", ["마스터 패스워드", "개인 라이선스"], horizontal=True)
+        
+        settings = load_json(SETTINGS_FILE, DEFAULT_SETTINGS)
+        users = load_json(USERS_FILE, DEFAULT_USERS)
+        
+        if login_tab == "마스터 패스워드":
+            pwd = st.text_input("패스워드", type="password", placeholder="Master Password (0303)")
+            if st.button("🚀 시스템 가동"):
+                if pwd == settings["master_password"]:
+                    st.session_state.authenticated = True
+                    st.session_state.user_role = "admin"
+                    st.success("관리자 권한으로 인증되었습니다.")
+                    time.sleep(0.5)
+                    st.rerun()
+                else: st.error("비밀번호가 올바르지 않습니다.")
+        else:
+            license_key = st.text_input("라이선스 키", type="password", placeholder="Your Private License Key")
+            if st.button("🚀 라이선스 인증"):
+                user = next((u for u in users if u["license"] == license_key), None)
+                if user:
+                    expiry = datetime.strptime(user["expiry"], "%Y-%m-%d")
+                    if expiry < datetime.now():
+                        st.error("❌ 라이선스 기간이 만료되었습니다. 관리자에게 문의하세요.")
+                    else:
+                        st.session_state.authenticated = True
+                        st.session_state.user_role = "user"
+                        st.session_state.current_user = user
+                        st.success(f"✅ {user['name']}님, 인증 성공!")
+                        time.sleep(0.5)
+                        st.rerun()
+                else: st.error("유효하지 않은 라이선스 키입니다.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- Smart Matching ---
-    with tabs[1]:
-        st.subheader("🔗 스마트 매칭 (Smart Matching)")
-        col1, col2 = st.columns(2)
+# --- Admin Panel ---
+def show_admin_panel():
+    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    st.header("⚙️ 시스템 관리자 패널")
+    
+    a_tabs = st.tabs(["🛡 보안 설정", "👥 사용자/라이선스 관리", "📊 사용 통계"])
+    
+    with a_tabs[0]:
+        st.subheader("마스터 패스워드 변경")
+        settings = load_json(SETTINGS_FILE, DEFAULT_SETTINGS)
+        new_pwd = st.text_input("새로운 마스터 패스워드", value=settings["master_password"])
+        if st.button("설정 저장"):
+            settings["master_password"] = new_pwd
+            save_json(SETTINGS_FILE, settings)
+            st.success("패스워드가 업데이트되었습니다.")
+            
+    with a_tabs[1]:
+        users = load_json(USERS_FILE, DEFAULT_USERS)
+        st.subheader("새로운 사용자 등록")
+        with st.form("user_reg"):
+            c1, c2 = st.columns(2)
+            u_name = c1.text_input("이름")
+            u_phone = c2.text_input("연락처 (010-...)")
+            u_license = c1.text_input("고유 라이선스 키 (Password)")
+            u_expiry = c2.date_input("만료 일자", value=datetime.now() + timedelta(days=365))
+            if st.form_submit_button("사용자 추가"):
+                if u_name and u_license:
+                    users.append({
+                        "name": u_name, "phone": u_phone, "license": u_license,
+                        "expiry": u_expiry.strftime("%Y-%m-%d"),
+                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+                    })
+                    save_json(USERS_FILE, users)
+                    st.success(f"{u_name}님 등록 완료.")
+                    st.rerun()
         
-        with col1:
+        st.divider()
+        st.subheader("라이선스 현황")
+        if users:
+            df = pd.DataFrame(users)
+            st.dataframe(df, use_container_width=True)
+            if st.button("🗑 모든 데이터 초기화"):
+                save_json(USERS_FILE, [])
+                st.rerun()
+        else: st.info("등록된 사용자가 없습니다.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# --- Main App Modules ---
+def show_main_app():
+    with st.sidebar:
+        st.markdown(f"### 👤 {st.session_state.current_user['name'] if st.session_state.current_user else 'Master Admin'}")
+        st.caption(f"Status: {st.session_state.user_role.upper()} ACCESS")
+        if st.button("🚪 안전 로그아웃"):
+            st.session_state.authenticated = False
+            st.rerun()
+        st.divider()
+        st.markdown("#### 🛠 시스템 엔진")
+        st.success("AI Core v2.8 Active")
+        st.success("Safe Memory Enabled")
+
+    st.markdown('<h1 style="font-size: 3rem; font-weight: 900; color: #0f172a;">Data Intelligence PRO</h1>', unsafe_allow_html=True)
+    
+    app_tabs = ["🔗 스마트 매칭 (Matching)", "📄 정밀 추출 (Extract)", "📂 스마트 병합 (Merge)", "📊 심층 분석 (Insight)", "🛠 데이터 변환 (Transform)"]
+    if st.session_state.user_role == "admin":
+        app_tabs.append("⚙️ 어드민 (Admin)")
+        
+    t = st.tabs(app_tabs)
+    
+    # --- 1. Matching ---
+    with t[0]:
+        st.subheader("🔗 스마트 매칭 (Smart Matching)")
+        c1, c2 = st.columns(2)
+        with c1:
             st.markdown('<div class="premium-card">', unsafe_allow_html=True)
             st.markdown("##### 🟢 원본 (Base)")
-            b_file = st.file_uploader("원본 파일", type=['xlsx', 'csv', 'xls'], key="b")
-            if b_file:
-                sheets = get_sheet_names(b_file)
-                b_s = st.selectbox("시트", ["(기본)"] + sheets if sheets else ["(기본)"], key="bs")
-                b_df = load_file_to_df(b_file, sheet_name=None if b_s == "(기본)" else b_s)
-                b_key = st.selectbox("기준 컬럼 (Join Key)", b_df.columns, key="bk")
+            b_f = st.file_uploader("원본 업로드", type=['xlsx','csv','xls'], key="bf")
+            if b_f:
+                b_df = load_file_to_df(b_f)
+                b_k = st.selectbox("기준 키 (Key)", b_df.columns, key="bk")
+            st.markdown('</div>', unsafe_allow_html=True)
+        with c2:
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            st.markdown("##### 🟡 참조 (Ref)")
+            r_f = st.file_uploader("참조 업로드", type=['xlsx','csv','xls'], key="rf")
+            if r_f:
+                r_df = load_file_to_df(r_f)
+                r_k = st.selectbox("매칭 키 (Match)", r_df.columns, key="rk")
+                all_r = [c for c in r_df.columns if c != r_k]
+                sc1, sc2 = st.columns(2)
+                if sc1.button("전체 선택"): st.session_state.m_cols = all_r
+                if sc2.button("전체 해제"): st.session_state.m_cols = []
+                r_cols = st.multiselect("필드 선택", all_r, key="m_cols", default=st.session_state.get('m_cols', []))
             st.markdown('</div>', unsafe_allow_html=True)
         
-        with col2:
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown("##### 🟡 참조 (Reference)")
-            r_file = st.file_uploader("참조 파일", type=['xlsx', 'csv', 'xls'], key="r")
-            if r_file:
-                sheets = get_sheet_names(r_file)
-                r_s = st.selectbox("시트", ["(기본)"] + sheets if sheets else ["(기본)"], key="rs")
-                r_df = load_file_to_df(r_file, sheet_name=None if r_s == "(기본)" else r_s)
-                r_key = st.selectbox("매칭 컬럼 (Match Key)", r_df.columns, key="rk")
-                
-                # Select All Columns Feature
-                all_cols = [c for c in r_df.columns if c != r_key]
-                col_c1, col_c2 = st.columns([3, 1])
-                with col_c2:
-                    if st.button("전체 선택", key="sel_all_match"): st.session_state.match_cols = all_cols
-                    if st.button("전체 해제", key="clear_all_match"): st.session_state.match_cols = []
-                
-                r_cols = st.multiselect("가져올 컬럼", all_cols, key="match_cols", default=st.session_state.get('match_cols', []))
-            st.markdown('</div>', unsafe_allow_html=True)
+        if b_f and r_f:
+            if st.button("🚀 데이터 매칭 실행"):
+                with st.spinner("Processing..."):
+                    res = pd.merge(b_df, r_df[[r_k] + r_cols], left_on=b_k, right_on=r_k, how='left')
+                    st.success("완료!")
+                    st.dataframe(res.head(100))
+                    st.download_button("📥 Excel 다운로드", convert_df_to_excel(res), "match.xlsx")
 
-        if b_file and r_file:
-            st.markdown("#### ⚙️ 엔진 최적화")
-            c1, c2, c3 = st.columns(3)
-            do_norm = c1.checkbox("키 컬럼 정규화", value=True, help="공백 제거 및 대문자 변환")
-            do_dedup = c2.checkbox("참조 중복 제거", value=True, help="매칭 시 발생하는 중복 행 방지")
-            how_join = c3.selectbox("결합 방식", ["Left (원본유지)", "Inner (교집합)", "Outer (합집합)"])
-
-            if st.button("🚀 매칭 실행"):
-                with st.spinner("처리 중..."):
-                    d1, d2 = b_df.copy(), r_df.copy()
-                    if do_norm:
-                        d1[b_key] = d1[b_key].astype(str).str.strip().str.upper()
-                        d2[r_key] = d2[r_key].astype(str).str.strip().str.upper()
-                    if do_dedup: d2 = d2.drop_duplicates(subset=[r_key])
-                    how_map = {"Left (원본유지)": "left", "Inner (교집합)": "inner", "Outer (합집합)": "outer"}
-                    res = pd.merge(d1, d2[[r_key] + r_cols], left_on=b_key, right_on=r_key, how=how_map[how_join])
-                    st.success(f"매칭 성공! ({len(res):,}행)")
-                    st.dataframe(res.head(50))
-                    sc1, sc2 = st.columns(2)
-                    sc1.download_button("📥 Excel 저장", convert_df_to_excel(res), "match_result.xlsx")
-                    sc2.download_button("📥 CSV 저장", res.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'), "match_result.csv")
-
-    # --- Precision Extract ---
-    with tabs[2]:
+    # --- 2. Extract ---
+    with t[1]:
         st.subheader("📄 정밀 추출 (Precision Extract)")
-        f_e = st.file_uploader("파일 업로드", type=['xlsx', 'csv', 'xls'], key="fe")
-        if f_e:
-            df_e = load_file_to_df(f_e)
+        e_f = st.file_uploader("가공 대상 업로드", type=['xlsx','csv','xls'], key="ef")
+        if e_f:
+            e_df = load_file_to_df(e_f)
             st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown("##### 🔍 필터 및 컬럼 구성")
-            c1, c2 = st.columns([2, 3])
-            with c1:
-                col_f = st.selectbox("필터 적용 대상", df_e.columns)
-                mode_f = st.selectbox("필터 조건", ["일치", "포함", "정규식", "제외", "공백 아님"])
-                val_f = st.text_input("검색 값")
+            ec1, ec2 = st.columns([1, 2])
+            with ec1:
+                col_f = st.selectbox("필터 컬럼", e_df.columns)
+                val_f = st.text_input("검색어 (콤마 구분)")
+            with ec2:
+                all_e = list(e_df.columns)
+                if st.button("전체 선택", key="e_all"): st.session_state.e_cols = all_e
+                e_cols = st.multiselect("출력 컬럼", all_e, key="e_cols", default=st.session_state.get('e_cols', all_e))
             
-            with c2:
-                # Select All Columns Feature
-                all_e_cols = list(df_e.columns)
-                ec1, ec2 = st.columns([4, 1])
-                with ec2:
-                    if st.button("전체 선택", key="sel_all_ext"): st.session_state.ext_cols = all_e_cols
-                    if st.button("전체 해제", key="clear_all_ext"): st.session_state.ext_cols = []
-                cols_e = st.multiselect("출력 컬럼 선택", all_e_cols, key="ext_cols", default=st.session_state.get('ext_cols', all_e_cols))
-            
-            st.divider()
-            st.markdown("##### ✨ 전문가 자동 보정")
-            opt1, opt2, opt3 = st.columns(3)
-            f_s = opt1.checkbox("AI 기반 결측치 채움", value=True)
-            d_e = opt2.checkbox("중복 행 제거", value=True)
-            s_e = opt3.checkbox("정렬 적용")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            if st.button("📤 정밀 가공 실행"):
-                res = df_e[cols_e].copy()
-                if val_f or mode_f == "공백 아님":
-                    vals = [v.strip() for v in val_f.split(",") if v.strip()]
-                    if mode_f == "일치": res = res[res[col_f].astype(str).isin(vals)]
-                    elif mode_f == "포함": res = res[res[col_f].astype(str).str.contains("|".join(vals), na=False)]
-                    elif mode_f == "정규식": res = res[res[col_f].astype(str).str.contains(val_f, regex=True, na=False)]
-                    elif mode_f == "제외": res = res[~res[col_f].astype(str).isin(vals)]
-                    elif mode_f == "공백 아님": res = res[res[col_f].notna()]
-                if f_s: res = fill_service_small_from_mid(res)
-                if d_e: res = res.drop_duplicates()
-                if s_e: res = res.sort_values(by=res.columns[0])
-                st.success(f"가공 완료! ({len(res):,}행)")
-                st.dataframe(res.head(50))
-                st.download_button("📥 결과 저장 (Excel)", convert_df_to_excel(res), "extract_result.xlsx")
-
-    # --- Smart Merge ---
-    with tabs[3]:
-        st.subheader("📂 스마트 병합 (Smart Merge)")
-        files = st.file_uploader("병합할 모든 파일 선택", type=['xlsx', 'csv', 'xls'], accept_multiple_files=True)
-        if files:
-            st.markdown(f'<div class="expert-badge">활성 파일: {len(files)}개</div>', unsafe_allow_html=True)
-            if st.button("🚀 통합 병합 실행"):
-                frames = []
-                bar = st.progress(0)
-                for i, file in enumerate(files):
-                    tmp = load_file_to_df(file)
-                    frames.append(tmp)
-                    bar.progress((i + 1) / len(files))
-                final = pd.concat(frames, ignore_index=True)
-                st.success(f"병합 완료! 총 {len(final):,}행 통합")
-                st.download_button("📥 통합 결과 저장 (Excel)", convert_df_to_excel(final), "merged_all.xlsx")
-
-    # --- Deep Insight ---
-    with tabs[4]:
-        st.subheader("📊 심층 분석 (Deep Insight)")
-        f_a = st.file_uploader("분석 파일 업로드", type=['xlsx', 'csv', 'xls'], key="fa")
-        if f_a:
-            df_a = load_file_to_df(f_a)
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown("##### 🏥 데이터 상태 리포트")
-            health_data = []
-            for col in df_a.columns:
-                nulls = df_a[col].isna().sum()
-                uniques = df_a[col].nunique()
-                health_data.append({"컬럼명": col, "타입": str(df_a[col].dtype), "결측": f"{nulls} ({(nulls/len(df_a)*100):.1f}%)", "고유값": uniques})
-            st.table(pd.DataFrame(health_data))
-            st.markdown('</div>', unsafe_allow_html=True)
-            col_a = st.selectbox("분석 대상 컬럼", df_a.columns)
-            st.bar_chart(df_a[col_a].value_counts().head(20))
-
-    # --- Transformation ---
-    with tabs[5]:
-        st.subheader("🛠 데이터 변환 (Transformation)")
-        f_t = st.file_uploader("변환 대상 파일 업로드", type=['xlsx', 'csv', 'xls'], key="ft")
-        if f_t:
-            df_t = load_file_to_df(f_t)
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown("##### 🔄 일괄 변환 설정")
-            col_t = st.selectbox("변환 컬럼", df_t.columns, key="colt")
-            action_t = st.selectbox("변환 작업", ["선택 안 함", "대문자로", "소문자로", "숫자만 추출", "날짜 형식 통일", "값 치환"])
-            if action_t == "값 치환":
-                find_v = st.text_input("기존 값")
-                rep_v = st.text_input("새 값")
-            st.markdown('</div>', unsafe_allow_html=True)
-            if st.button("🪄 변환 적용"):
-                res = df_t.copy()
-                if action_t == "대문자로": res[col_t] = res[col_t].astype(str).str.upper()
-                elif action_t == "소문자로": res[col_t] = res[col_t].astype(str).str.lower()
-                elif action_t == "숫자만 추출": res[col_t] = res[col_t].astype(str).str.extract('(\d+)').astype(float)
-                elif action_t == "날짜 형식 통일": res[col_t] = pd.to_datetime(res[col_t], errors='coerce').dt.strftime('%Y-%m-%d')
-                elif action_t == "값 치환": res[col_t] = res[col_t].replace(find_v, rep_v)
-                st.success("변환 프로세스 완료!")
+            if st.button("📤 추출 실행"):
+                res = e_df[e_cols].copy()
+                if val_f:
+                    vals = [v.strip() for v in val_f.split(",")]
+                    res = res[res[col_f].astype(str).str.contains("|".join(vals), na=False)]
                 st.dataframe(res.head(100))
-                st.download_button("📥 결과 저장 (Excel)", convert_df_to_excel(res), "transformed.xlsx")
+                st.download_button("📥 결과 저장", convert_df_to_excel(res), "extract.xlsx")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- 3. Merge ---
+    with t[2]:
+        st.subheader("📂 스마트 병합 (Smart Merge)")
+        m_files = st.file_uploader("병합할 파일들을 선택하세요", accept_multiple_files=True, key="mf")
+        if m_files:
+            if st.button("🚀 대량 통합 실행"):
+                all_dfs = [load_file_to_df(f) for f in m_files]
+                final = pd.concat(all_dfs, ignore_index=True)
+                st.success(f"{len(m_files)}개 파일 통합 완료!")
+                st.download_button("📥 통합 결과 저장", convert_df_to_excel(final), "merged.xlsx")
+
+    # --- 4. Insight ---
+    with t[3]:
+        st.subheader("📊 심층 분석 (Insight)")
+        a_f = st.file_uploader("분석용 파일 업로드", key="af")
+        if a_f:
+            a_df = load_file_to_df(a_f)
+            st.table(pd.DataFrame([{"컬럼": c, "타입": str(a_df[c].dtype), "Null": a_df[c].isna().sum()} for c in a_df.columns]))
+            sel_c = st.selectbox("분포 확인 컬럼", a_df.columns)
+            st.bar_chart(a_df[sel_c].value_counts().head(20))
+
+    # --- 5. Admin ---
+    if st.session_state.user_role == "admin":
+        with t[-1]:
+            show_admin_panel()
+
+# --- Main Entry ---
+def main():
+    if not st.session_state.authenticated:
+        show_landing()
+    else:
+        show_main_app()
 
 if __name__ == "__main__":
     main()
