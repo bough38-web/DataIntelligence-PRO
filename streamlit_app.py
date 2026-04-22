@@ -243,7 +243,10 @@ def show_landing():
                             expiry = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
                             database.create_user(reg_name, reg_phone, key, expiry)
                             database.add_log(reg_name, "Registered (7-day trial)")
-                            st.success(f"가입 완료! 아래 발급된 키를 복사해 주세요.\\n\\n### `{key}`\\n\\n위 키를 복사한 후 '사용자 접속' 탭에서 로그인하세요.")
+                            st.success("🎉 가입이 완료되었습니다! (7일 무료 체험)")
+                            st.markdown("👇 **아래 발급된 라이선스 키를 복사해 주세요.**")
+                            st.code(key, language=None)
+                            st.info("위 키를 복사한 후 상단의 **'사용자 접속'** 탭을 눌러 로그인해 주세요.")
         
         # 하단 푸터
         st.markdown("<p style='text-align:center; margin-top:30px; color:#94a3b8; font-size:0.8rem;'>© 2026 Data Intel Pro. All rights reserved.</p>", unsafe_allow_html=True)
