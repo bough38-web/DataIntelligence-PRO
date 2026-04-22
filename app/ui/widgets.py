@@ -16,8 +16,7 @@ class PresetSelector(QWidget):
     def __init__(self, category="default"):
         super().__init__()
         self.category = category
-        self.manager = PresetManager(preset_dir=f"presets/{category}")
-        os.makedirs(f"presets/{category}", exist_ok=True)
+        self.manager = PresetManager(category=category)
         self.build_ui()
 
     def build_ui(self):

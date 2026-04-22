@@ -4,10 +4,16 @@ from pathlib import Path
 from app.utils.common import JsonStore
 
 class PresetManager:
-    def __init__(self, preset_dir="presets"):
-        self.preset_dir = Path(preset_dir)
-        self.preset_dir.mkdir(parents=True, exist_ok=True)
-        self.store = JsonStore(self.preset_dir / "index.json", default={"presets": {}})
+    def __init__(self, category="default"):
+        # Use a hidden directory in the user's home folder for persistent storage
+        self.base_dir = Path.home() / ".dataintelligence_pro" / "presets" / category
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.store = JsonStore(self.base_dir / "index.json", default={"presets": {}})
+
+    @property
+    def preset_dir(self):
+        # Compatibility property
+        return self.base_dir
 
     def save_preset(self, name, data):
         index = self.store.load()
