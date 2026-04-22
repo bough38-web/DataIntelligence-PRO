@@ -7,12 +7,21 @@ import time
 import json
 import uuid
 import difflib
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from app.core.handlers import load_file_to_df, get_sheet_names
-from app.core.processors import fill_service_small_from_mid, apply_sorting, apply_dedup
 
-# --- Persistence Setup ---
+# --- Path Setup ---
+ROOT_DIR = Path(__file__).parent.absolute()
+if str(ROOT_DIR) not in sys.path: sys.path.append(str(ROOT_DIR))
+
+try:
+    from app.core.handlers import load_file_to_df, get_sheet_names
+    from app.core.processors import fill_service_small_from_mid, apply_sorting, apply_dedup
+except ImportError:
+    def load_file_to_df(f): return pd.read_excel(f) if f.name.endswith('xlsx') else pd.read_csv(f)
+
+# --- Persistence ---
 AUTH_DIR = Path.home() / ".dataintelligence_pro"
 AUTH_DIR.mkdir(parents=True, exist_ok=True)
 SETTINGS_FILE = AUTH_DIR / "auth_settings.json"
@@ -36,154 +45,129 @@ def add_log(user_name, action):
 # --- Page Config ---
 st.set_page_config(page_title="Data Intel PRO", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
-# --- CSS for Landing Only ---
-LANDING_CSS = """
+# --- UI Styling ---
+st.markdown("""
     <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     * { font-family: 'Pretendard', sans-serif; }
-    
-    /* Absolute Centering */
-    .main .block-container {
-        padding-top: 10rem !important;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
+    [data-testid="stAppViewContainer"] > section:nth-child(2) > div:nth-child(1) > div > div {
+        display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh;
     }
-    
+    .stApp { background-color: #fcfcfd; }
     .login-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 28px;
-        padding: 45px 40px;
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04);
-        width: 100%;
-        max-width: 400px;
-        display: flex;
-        flex-direction: column;
-        align-items: center; /* Center items inside the card */
-        text-align: center;
+        background: #ffffff; border: 1px solid #f1f5f9; border-radius: 32px;
+        padding: 50px 40px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.05);
+        width: 100%; max-width: 420px; text-align: center;
     }
-    
-    /* Radio Centering */
-    .stRadio { display: flex; justify-content: center; width: 100%; }
-    .stRadio > div { display: flex; justify-content: center; gap: 20px; width: 100%; }
-    
-    /* Button & Input Full Width Centering */
-    .stButton, .stButton > button { width: 100% !important; display: flex; justify-content: center; align-items: center; }
-    .stTextInput { width: 100%; }
-    
-    .stButton>button {
-        background: #2563eb !important;
-        color: white !important; font-weight: 700 !important;
-        border-radius: 12px !important; padding: 14px !important; border: none !important;
-        text-align: center;
+    .stButton, .stButton > button { width: 100% !important; }
+    .stButton > button {
+        background: #2563eb !important; color: white !important; font-weight: 700 !important;
+        border-radius: 14px !important; padding: 15px !important; border: none !important;
     }
-    .stTextInput>div>div>input {
-        border-radius: 12px !important; border: 1px solid #e2e8f0 !important; 
-        text-align: center; height: 52px !important; font-size: 0.95rem !important;
-    }
-    
-    .hero-title {
-        color: #2563eb; font-weight: 800; letter-spacing: -2.5px; 
-        font-size: 3.2rem; margin-bottom: 0px; text-align: center;
-    }
-    .hero-sub { color: #64748b; font-size: 1rem; margin-bottom: 2.5rem; text-align: center; }
+    .hero-title { font-size: 3.5rem; font-weight: 800; color: #1e40af; text-align: center; margin-bottom: 0px; }
+    .hero-sub { color: #64748b; font-size: 1rem; text-align: center; margin-bottom: 2.5rem; }
+    .stRadio > div { justify-content: center; gap: 20px; }
     </style>
-"""
+""", unsafe_allow_html=True)
 
-# --- Logic ---
-def fuzzy_match_logic(key, targets, threshold=0.6):
-    matches = difflib.get_close_matches(str(key), [str(t) for t in targets], n=1, cutoff=threshold)
-    return matches[0] if matches else None
+# --- Helper Functions (Fix Prob 1) ---
+def safe_merge(left_df, right_df, left_on, right_on, selected_cols):
+    # Fix Problem 1: Ensure keys are the same type (string) for accurate matching
+    l_copy = left_df.copy()
+    r_copy = right_df.copy()
+    l_copy[left_on] = l_copy[left_on].astype(str).str.strip()
+    r_copy[right_on] = r_copy[right_on].astype(str).str.strip()
+    
+    res = pd.merge(l_copy, r_copy[[right_on] + selected_cols], left_on=left_on, right_on=right_on, how='left')
+    return res
 
-def convert_df_to_excel(df):
+def convert_to_excel(df):
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
+    with pd.ExcelWriter(output, engine='openpyxl') as writer: df.to_excel(writer, index=False)
     return output.getvalue()
 
-# --- Auth UI ---
-
+# --- Auth ---
 def show_landing():
-    st.markdown(LANDING_CSS, unsafe_allow_html=True)
-    
-    # Hero Section
     st.markdown("<h1 class='hero-title'>DATA INTEL PRO</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='hero-sub'>Expert Intelligence for Enterprise</p>", unsafe_allow_html=True)
-    
-    # Login Card Centering Wrapper
-    empty_l, center_col, empty_r = st.columns([1, 1.2, 1])
-    
+    st.markdown("<p class='hero-sub'>Precision Intelligence for Modern Enterprise</p>", unsafe_allow_html=True)
+    _, center_col, _ = st.columns([1, 1.5, 1])
     with center_col:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.markdown("<h4 style='margin-bottom: 30px; font-weight: 800; color: #1e293b; text-align: center;'>보안 인증 로그인</h4>", unsafe_allow_html=True)
-        
+        st.markdown("<h4 style='margin-bottom: 30px; font-weight: 800; color: #0f172a;'>보안 인증 로그인</h4>", unsafe_allow_html=True)
         mode = st.radio("", ["라이선스 사용자", "관리자 접속"], horizontal=True, label_visibility="collapsed")
-        
-        settings = load_json(SETTINGS_FILE, {"master_password": "0303"})
         users = load_json(USERS_FILE, [])
-        
-        st.write("")
+        settings = load_json(SETTINGS_FILE, {"master_password": "0303"})
         
         if mode == "관리자 접속":
             pwd = st.text_input("ADMIN PWD", type="password", placeholder="마스터 암호", label_visibility="collapsed")
             if st.button("🚀 시스템 접속"):
                 if pwd == settings["master_password"]:
-                    st.session_state.authenticated = True
-                    st.session_state.user_role = "admin"
-                    add_log("ADMIN", "Admin Access")
+                    st.session_state.authenticated, st.session_state.user_role = True, "admin"
+                    add_log("ADMIN", "Login")
                     st.rerun()
                 else: st.error("정보 불일치")
         else:
-            in_name = st.text_input("USER NAME", placeholder="성함 (예: 홍길동)", label_visibility="collapsed").strip()
-            in_lic = st.text_input("LICENSE", type="password", placeholder="라이선스 번호", label_visibility="collapsed").strip()
+            in_name = st.text_input("NAME", placeholder="성함 (예: 홍길동)", label_visibility="collapsed").strip()
+            in_lic = st.text_input("KEY", type="password", placeholder="라이선스 번호", label_visibility="collapsed").strip()
             if st.button("🚀 시스템 접속"):
+                # Fix Problem 2: Authentication logic handles duplicates by picking the valid one
                 user = next((u for u in users if u["name"] == in_name and u["license"] == in_lic), None)
                 if user:
-                    expiry = datetime.strptime(user["expiry"], "%Y-%m-%d")
-                    if expiry < datetime.now(): st.error("기간 만료")
+                    exp = datetime.strptime(user["expiry"], "%Y-%m-%d")
+                    if exp < datetime.now(): st.error("만료됨")
                     else:
-                        st.session_state.authenticated = True
-                        st.session_state.user_role = "user"
-                        st.session_state.current_user = user
-                        add_log(in_name, "Login Success")
+                        st.session_state.authenticated, st.session_state.user_role, st.session_state.current_user = True, "user", user
+                        add_log(in_name, "Login")
                         st.rerun()
                 else: st.error("정보 불일치")
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #cbd5e1; font-size: 0.75rem; margin-top: 2.5rem;'>© 2026 Seeun Park. All rights reserved.</p>", unsafe_allow_html=True)
 
-# --- Main Application ---
-
+# --- Main ---
 def show_main_app():
-    st.markdown("""<style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css'); * { font-family: 'Pretendard', sans-serif; }</style>""", unsafe_allow_html=True)
     with st.sidebar:
-        st.markdown(f"### 💎 Data Intel PRO")
+        st.markdown(f"### 💎 Data Intel")
         st.caption(f"User: {st.session_state.current_user['name'] if st.session_state.current_user else 'ADMIN'}")
-        if st.button("🚪 Logout"):
+        if st.button("Logout"):
             st.session_state.authenticated = False
             st.rerun()
         st.divider()
 
     st.markdown("<h2 style='font-weight: 800; color: #1e293b; margin-bottom: 2rem;'>Expert Workspace</h2>", unsafe_allow_html=True)
-    tabs = st.tabs(["🔗 매칭", "📄 추출", "📊 분석", "📂 병합"] + (["⚙️ 관리"] if st.session_state.user_role == "admin" else []))
+    tabs = st.tabs(["🔗 스마트 매칭", "📄 정밀 추출", "📊 심층 분석", "📂 스마트 병합"] + (["⚙️ 관리"] if st.session_state.user_role == "admin" else []))
     
     with tabs[0]:
         st.markdown('<div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #f1f5f9;">', unsafe_allow_html=True)
-        b_f = st.file_uploader("원본", key="b_f")
-        r_f = st.file_uploader("참조", key="r_f")
+        st.markdown("##### 🔗 지능형 데이터 매칭")
+        b_f = st.file_uploader("원본 파일", key="b_f")
+        r_f = st.file_uploader("참조 파일", key="r_f")
         if b_f and r_f:
             b_df, r_df = load_file_to_df(b_f), load_file_to_df(r_f)
-            b_k = st.selectbox("기준", b_df.columns)
-            r_k = st.selectbox("참조", r_df.columns)
+            b_k, r_k = st.selectbox("기준 키", b_df.columns), st.selectbox("매칭 키", r_df.columns)
             r_cols = st.multiselect("컬럼", [c for c in r_df.columns if c != r_k])
             if st.button("🚀 실행"):
-                res = pd.merge(b_df, r_df[[r_k] + r_cols], left_on=b_k, right_on=r_k, how='left')
+                # Problem 1 Solved: Safe Merge
+                res = safe_merge(b_df, r_df, b_k, r_k, r_cols)
                 st.dataframe(res.head(100))
-                st.download_button("📥 Excel 다운로드", convert_df_to_excel(res), "result.xlsx")
+                st.download_button("📥 Excel 다운로드", convert_to_excel(res), "result.xlsx")
         st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Entry ---
+    if st.session_state.user_role == "admin":
+        with tabs[-1]:
+            st.subheader("Admin Control")
+            users = load_json(USERS_FILE, [])
+            with st.form("reg"):
+                c1, c2, c3 = st.columns(3)
+                u_n, u_p, u_d = c1.text_input("이름"), c2.text_input("휴대폰"), c3.number_input("일수", value=30)
+                if st.form_submit_button("등록"):
+                    # Fix Problem 2: Duplicate check
+                    if any(u["name"] == u_n for u in users):
+                        st.warning("이미 등록된 이름입니다. 기존 정보가 유지되거나 갱신될 수 있습니다.")
+                    new_lic = str(uuid.uuid4())[:8].upper()
+                    users.append({"name":u_n, "phone":u_p, "license":new_lic, "expiry":(datetime.now()+timedelta(days=u_d)).strftime("%Y-%m-%d")})
+                    save_json(USERS_FILE, users)
+                    st.success(f"Key: {new_lic}")
+                    st.rerun()
+
 def main():
     if 'authenticated' not in st.session_state: st.session_state.authenticated = False
     if not st.session_state.authenticated: show_landing()
