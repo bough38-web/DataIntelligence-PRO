@@ -206,7 +206,7 @@ def show_landing():
         with st.container(border=True):
             st.markdown("<p style='text-align:center; font-weight:700; color:#475569; margin-bottom:15px; font-size:1.0rem;'>SECURE ACCESS</p>", unsafe_allow_html=True)
             
-            mode = st.radio("Access Mode", ["사용자 접속", "관리자 모드"], horizontal=True, label_visibility="collapsed")
+            mode = st.radio("Access Mode", ["사용자 접속", "무료체험 가입", "관리자 모드"], horizontal=True, label_visibility="collapsed")
             
             st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
             
@@ -214,8 +214,7 @@ def show_landing():
             users = load_json(USERS_FILE, [])
             settings = load_json(SETTINGS_FILE, {"master_password": "0303"})
             
-            # 실제 인증 로직 결합
-            if mode == "관리자 모드":
+            elif mode == "관리자 모드":
                 pwd = st.text_input("ADMIN PWD", type="password", placeholder="Master Password", label_visibility="collapsed")
                 if st.button("Authenticate System", use_container_width=True):
                     if pwd == settings["master_password"]: 
@@ -226,20 +225,28 @@ def show_landing():
                         st.rerun()
                     else:
                         st.error("Invalid Credential")
-            else:
-                name = st.text_input("NAME", placeholder="Full Name", label_visibility="collapsed")
-                key = st.text_input("LICENSE", type="password", placeholder="License Key", label_visibility="collapsed")
-                if st.button("Sign In to Workspace", use_container_width=True):
-                    u = next((x for x in users if x["name"] == name and x["license"] == key), None)
-                    if u:
-                        if datetime.strptime(u["expiry"], "%Y-%m-%d") < datetime.now(): 
-                            st.error("만료된 라이선스입니다.")
+            elif mode == "무료체험 가입":
+                st.markdown("<p style='font-size:0.9rem; color:#64748b; text-align:center;'>7일 무료 체험을 시작합니다.</p>", unsafe_allow_html=True)
+                reg_name = st.text_input("REG_NAME", placeholder="Full Name (이름)", label_visibility="collapsed")
+                reg_phone = st.text_input("REG_PHONE", placeholder="Phone Number (연락처)", label_visibility="collapsed")
+                if st.button("가입 및 라이선스 발급", use_container_width=True):
+                    if len(reg_name) < 2 or len(reg_phone) < 10:
+                        st.error("올바른 이름과 연락처를 입력해주세요.")
+                    else:
+                        if any(x.get("phone") == reg_phone for x in users):
+                            st.error("이미 무료체험이 등록된 연락처입니다.")
                         else:
-                            st.session_state.authenticated, st.session_state.user_role, st.session_state.current_user = True, "user", u
-                            add_log(name, "Login Success")
-                            st.rerun()
-                    else: 
-                        st.error("인증 정보가 올바르지 않습니다.")
+                            key = str(uuid.uuid4())[:8].upper()
+                            expiry = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+                            users.append({
+                                "name": reg_name,
+                                "phone": reg_phone,
+                                "license": key,
+                                "expiry": expiry
+                            })
+                            save_json(USERS_FILE, users)
+                            add_log(reg_name, "Registered (7-day trial)")
+                            st.success(f"가입 완료! 아래 발급된 키를 복사해 주세요.\\n\\n### `{key}`\\n\\n위 키를 복사한 후 '사용자 접속' 탭에서 로그인하세요.")
         
         # 하단 푸터
         st.markdown("<p style='text-align:center; margin-top:30px; color:#94a3b8; font-size:0.8rem;'>© 2026 Data Intel Pro. All rights reserved.</p>", unsafe_allow_html=True)
@@ -274,11 +281,44 @@ def show_main_app():
                 st.markdown("**[ 이메일 문의 ]**")
                 st.code("bough38@gmail.com")
                 st.markdown("**[ 카카오톡 문의 ]**")
-                # QR API를 사용하여 임시로 카카오톡/이메일 연락처 QR 표시
                 qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=mailto:bough38@gmail.com"
                 st.image(qr_url, caption="QR 코드를 스캔해주세요", width=150)
-                st.caption("연장 및 추가 문의는 위 연락처로 부탁드립니다.")
+                st.caption("기타 연장 및 추가 문의는 위 연락처로 부탁드립니다.")
                 
+            with st.expander("💳 정기 결제 및 라이선스 구매"):
+                st.markdown("<p style='font-size:0.85rem; color:#64748b;'>정식 요금제를 결제하여 즉시 라이선스를 연장하세요.</p>", unsafe_allow_html=True)
+                plan = st.selectbox("요금제 선택", ["1개월 이용권 (₩39,000)", "6개월 이용권 (₩190,000)", "1년 이용권 (₩350,000)"])
+                
+                with st.form("payment_form"):
+                    st.text_input("카드 번호", placeholder="0000-0000-0000-0000")
+                    c1, c2 = st.columns(2)
+                    c1.text_input("유효기간", placeholder="MM/YY")
+                    c2.text_input("CVC", type="password", placeholder="***")
+                    st.text_input("카드 비밀번호 앞 2자리", type="password", placeholder="**")
+                    
+                    if st.form_submit_button("💳 안전하게 결제하기", use_container_width=True):
+                        days_to_add = 30 if "1개월" in plan else (180 if "6개월" in plan else 365)
+                        
+                        # DB에서 유저 정보 업데이트
+                        us = load_json(USERS_FILE, [])
+                        for u in us:
+                            if u["license"] == user["license"]:
+                                current_expiry = datetime.strptime(u["expiry"], "%Y-%m-%d")
+                                # 이미 만료된 경우 현재 시간 기준으로 연장
+                                if current_expiry < datetime.now():
+                                    current_expiry = datetime.now()
+                                new_expiry = current_expiry + timedelta(days=days_to_add)
+                                u["expiry"] = new_expiry.strftime("%Y-%m-%d")
+                                
+                                # 세션 강제 업데이트
+                                st.session_state.current_user["expiry"] = u["expiry"]
+                                save_json(USERS_FILE, us)
+                                add_log(user["name"], f"Purchased {days_to_add} days")
+                                break
+                        
+                        st.success(f"결제가 성공적으로 처리되었습니다! 라이선스가 {days_to_add}일 연장되었습니다.")
+                        st.balloons()
+                        
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.authenticated = False
