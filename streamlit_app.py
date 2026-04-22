@@ -102,10 +102,10 @@ PROFESSIONAL_STYLE = """
         backdrop-filter: blur(10px) !important;
         border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 24px !important;
-        padding: 30px 20px !important;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        padding: 20px 15px !important;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
         width: 100% !important;
-        max-width: 400px !important;
+        max-width: 320px !important;
         margin: 0 auto !important;
     }
     
@@ -116,10 +116,10 @@ PROFESSIONAL_STYLE = """
 
     /* 입력창 및 라디오 버튼 커스텀 */
     .stTextInput > div > div > input {
-        border-radius: 12px !important;
+        border-radius: 8px !important;
         border: 1px solid #e2e8f0 !important;
-        height: 50px !important;
-        font-size: 0.95rem !important;
+        height: 40px !important;
+        font-size: 0.9rem !important;
         background-color: #f8fafc !important;
         transition: all 0.2s ease;
     }
@@ -132,12 +132,13 @@ PROFESSIONAL_STYLE = """
     .stButton > button {
         background: #0f172a !important; /* 다크 네이비 테마 */
         color: #ffffff !important;
-        border-radius: 12px !important;
-        padding: 12px 24px !important;
+        border-radius: 8px !important;
+        padding: 8px 16px !important;
         width: 100% !important;
+        font-size: 0.95rem !important;
         font-weight: 600 !important;
         border: none !important;
-        height: 50px !important;
+        height: 40px !important;
         margin-top: 10px;
         transition: all 0.3s ease !important;
     }
@@ -187,8 +188,8 @@ def show_landing():
     # 1. 사용자 제공 스타일 적용
     st.markdown(PROFESSIONAL_STYLE, unsafe_allow_html=True)
     
-    # 2. 레이아웃 배치
-    _, center_col, _ = st.columns([0.5, 2, 0.5])
+    # 2. 레이아웃 배치 (중앙 컨테이너 폭 축소)
+    _, center_col, _ = st.columns([1.5, 1.2, 1.5])
     
     with center_col:
         st.markdown('<div class="main-center-wrapper">', unsafe_allow_html=True)
@@ -203,11 +204,11 @@ def show_landing():
         
         # 로그인 카드 섹션 (Streamlit Native Container)
         with st.container(border=True):
-            st.markdown("<p style='text-align:center; font-weight:700; color:#475569; margin-bottom:20px; font-size:1.1rem;'>SECURE ACCESS</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:center; font-weight:700; color:#475569; margin-bottom:15px; font-size:1.0rem;'>SECURE ACCESS</p>", unsafe_allow_html=True)
             
             mode = st.radio("Access Mode", ["사용자 접속", "관리자 모드"], horizontal=True, label_visibility="collapsed")
             
-            st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
             
             # 실제 데이터베이스 로드
             users = load_json(USERS_FILE, [])
