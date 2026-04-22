@@ -36,71 +36,43 @@ def add_log(user_name, action):
 # --- Page Config ---
 st.set_page_config(page_title="Data Intel PRO", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
-# --- Session State ---
-if 'authenticated' not in st.session_state: st.session_state.authenticated = False
-if 'user_role' not in st.session_state: st.session_state.user_role = "user"
-if 'current_user' not in st.session_state: st.session_state.current_user = None
-
-# --- PERFECT CENTER & SLIM CARD CSS ---
-st.markdown("""
+# --- CSS for Landing Only ---
+LANDING_CSS = """
     <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    
     * { font-family: 'Pretendard', sans-serif; }
     
-    /* Force Absolute Centering for the entire block */
-    [data-testid="stAppViewContainer"] > section:nth-child(2) > div:nth-child(1) > div > div {
+    /* Center the main container vertically */
+    .main .block-container {
+        padding-top: 10rem !important;
         display: flex;
         flex-direction: column;
-        justify-content: center;
         align-items: center;
-        min-height: 100vh;
-        width: 100%;
+        justify-content: flex-start;
     }
-
-    .stApp { background-color: #fcfcfd; }
     
-    .hero-container { text-align: center; margin-bottom: 1.5rem; }
-    
-    .hero-title {
-        font-size: 3.5rem; font-weight: 800; color: #2563eb;
-        letter-spacing: -2.5px; margin-bottom: 0px;
-    }
-    .hero-sub { color: #6b7280; font-size: 1.1rem; font-weight: 500; margin-bottom: 2rem; }
-    
-    /* 60% Reduced Slim Card (approx 380px) */
     .login-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 28px;
-        padding: 45px 35px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
-        width: 380px; /* Reduced Width */
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+        width: 100%;
         text-align: center;
-        margin: 0 auto;
     }
     
     .stButton>button {
         background: #2563eb !important;
         color: white !important; font-weight: 700 !important;
-        border-radius: 12px !important; padding: 14px !important; width: 100% !important; border: none !important;
-        transition: all 0.2s ease !important;
+        border-radius: 12px !important; padding: 12px !important; width: 100% !important; border: none !important;
     }
-    .stButton>button:hover { background: #1d4ed8 !important; transform: translateY(-1px); }
-    
     .stTextInput>div>div>input {
-        border-radius: 12px !important; border: 1px solid #e2e8f0 !important; 
-        text-align: center; height: 50px !important; font-size: 0.95rem !important;
-        background-color: #f8fafc !important;
+        border-radius: 10px !important; border: 1px solid #e2e8f0 !important; 
+        text-align: center; height: 48px !important;
     }
-    .stTextInput>div>div>input:focus { border-color: #2563eb !important; background-color: #ffffff !important; }
-    
-    .footer { position: fixed; bottom: 20px; color: #cbd5e1; font-size: 0.8rem; text-align: center; width: 100%; }
-    
-    /* Center the Radio Buttons */
-    .stRadio > div { display: flex; justify-content: center; gap: 15px; margin-bottom: 10px; }
+    .stRadio > div { justify-content: center; gap: 15px; }
     </style>
-    """, unsafe_allow_html=True)
+"""
 
 # --- Logic ---
 def fuzzy_match_logic(key, targets, threshold=0.6):
@@ -116,116 +88,88 @@ def convert_df_to_excel(df):
 # --- Auth UI ---
 
 def show_landing():
-    st.markdown("<div class='hero-container'>", unsafe_allow_html=True)
-    st.markdown("<h1 class='hero-title'>DATA INTEL PRO</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='hero-sub'>Modern Data Intelligence for Enterprise</p>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown(LANDING_CSS, unsafe_allow_html=True)
     
-    st.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.markdown("<h3 style='margin-bottom: 25px; font-weight: 700; color: #111827; font-size: 1.5rem;'>보안 인증 로그인</h3>", unsafe_allow_html=True)
+    # Structural Centering using Columns
+    empty_l, center_col, empty_r = st.columns([1, 1.2, 1])
     
-    mode = st.radio("", ["라이선스 사용자", "관리자 접속"], horizontal=True, label_visibility="collapsed")
-    
-    settings = load_json(SETTINGS_FILE, {"master_password": "0303"})
-    users = load_json(USERS_FILE, [])
-    
-    st.write("")
-    
-    if mode == "관리자 접속":
-        pwd = st.text_input("ADMIN PWD", type="password", placeholder="마스터 암호", label_visibility="collapsed")
-        if st.button("🚀 어드민 접속"):
-            if pwd == settings["master_password"]:
-                st.session_state.authenticated = True
-                st.session_state.user_role = "admin"
-                add_log("ADMIN", "Admin Access Success")
-                st.rerun()
-            else: st.error("정보 불일치")
-    else:
-        in_name = st.text_input("USER NAME", placeholder="성함 (예: 홍길동)", label_visibility="collapsed").strip()
-        in_lic = st.text_input("LICENSE NUMBER", type="password", placeholder="라이선스 번호", label_visibility="collapsed").strip()
-        if st.button("🚀 시스템 로그인"):
-            user = next((u for u in users if u["name"] == in_name and u["license"] == in_lic), None)
-            if user:
-                expiry = datetime.strptime(user["expiry"], "%Y-%m-%d")
-                if expiry < datetime.now(): st.error("만료되었습니다.")
-                else:
+    with center_col:
+        st.markdown("<h1 style='text-align: center; color: #2563eb; font-weight: 800; letter-spacing: -2px; margin-bottom: 0;'>DATA INTEL PRO</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #64748b; font-size: 1rem; margin-bottom: 2rem;'>Modern Intelligence for Enterprise</p>", unsafe_allow_html=True)
+        
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.markdown("<h4 style='margin-bottom: 25px; font-weight: 700; color: #1e293b;'>보안 로그인</h4>", unsafe_allow_html=True)
+        
+        mode = st.radio("", ["라이선스 사용자", "관리자 접속"], horizontal=True, label_visibility="collapsed")
+        
+        settings = load_json(SETTINGS_FILE, {"master_password": "0303"})
+        users = load_json(USERS_FILE, [])
+        
+        st.write("")
+        
+        if mode == "관리자 접속":
+            pwd = st.text_input("ADMIN PWD", type="password", placeholder="마스터 암호", label_visibility="collapsed")
+            if st.button("🚀 어드민 접속"):
+                if pwd == settings["master_password"]:
                     st.session_state.authenticated = True
-                    st.session_state.user_role = "user"
-                    st.session_state.current_user = user
-                    add_log(in_name, "User Login Success")
+                    st.session_state.user_role = "admin"
+                    add_log("ADMIN", "Admin Login")
                     st.rerun()
-            else: st.error("정보 불일치")
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('<div class="footer">© 2026 Seeun Park. All rights reserved.</div>', unsafe_allow_html=True)
+                else: st.error("정보 불일치")
+        else:
+            in_name = st.text_input("NAME", placeholder="성함 (예: 홍길동)", label_visibility="collapsed").strip()
+            in_lic = st.text_input("LICENSE", type="password", placeholder="라이선스 번호", label_visibility="collapsed").strip()
+            if st.button("🚀 시스템 접속"):
+                user = next((u for u in users if u["name"] == in_name and u["license"] == in_lic), None)
+                if user:
+                    expiry = datetime.strptime(user["expiry"], "%Y-%m-%d")
+                    if expiry < datetime.now(): st.error("라이선스 만료")
+                    else:
+                        st.session_state.authenticated = True
+                        st.session_state.user_role = "user"
+                        st.session_state.current_user = user
+                        add_log(in_name, "User Login")
+                        st.rerun()
+                else: st.error("정보 불일치")
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #cbd5e1; font-size: 0.75rem; margin-top: 2rem;'>© 2026 Seeun Park. All rights reserved.</p>", unsafe_allow_html=True)
 
 # --- Main Application ---
 
 def show_main_app():
+    # Regular App Styling
+    st.markdown("""<style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css'); * { font-family: 'Pretendard', sans-serif; }</style>""", unsafe_allow_html=True)
+    
     with st.sidebar:
-        st.markdown(f"### 💎 Data Intel")
+        st.markdown(f"### 💎 Data Intel PRO")
         st.caption(f"User: {st.session_state.current_user['name'] if st.session_state.current_user else 'ADMIN'}")
         if st.button("🚪 Logout"):
             st.session_state.authenticated = False
             st.rerun()
         st.divider()
-        if st.session_state.user_role == "user":
-            st.markdown("#### 보안 설정")
-            new_p = st.text_input("라이선스 키 변경", type="password")
-            if st.button("변경 저장"):
-                users = load_json(USERS_FILE, [])
-                for u in users:
-                    if u["license"] == st.session_state.current_user["license"]:
-                        u["license"] = new_p
-                save_json(USERS_FILE, users)
-                st.success("완료")
 
-    st.markdown("<h2 style='font-weight: 800; color: #111827; margin-bottom: 2rem;'>Expert Workspace</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='font-weight: 800; color: #1e293b; margin-bottom: 2rem;'>Expert Workspace</h2>", unsafe_allow_html=True)
     
-    app_tabs = ["🔗 스마트 매칭", "📄 정밀 추출", "📊 심층 분석", "📂 스마트 병합"]
-    if st.session_state.user_role == "admin": app_tabs.append("⚙️ 관리 & 모니터링")
+    tabs = st.tabs(["🔗 매칭", "📄 추출", "📊 분석", "📂 병합"] + (["⚙️ 관리"] if st.session_state.user_role == "admin" else []))
     
-    tabs = st.tabs(app_tabs)
-    
-    # Matching
     with tabs[0]:
         st.markdown('<div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #f1f5f9;">', unsafe_allow_html=True)
-        st.markdown("##### 🔗 지능형 데이터 매칭")
-        b_f = st.file_uploader("원본 업로드", key="b_f")
-        r_f = st.file_uploader("참조 업로드", key="r_f")
+        b_f = st.file_uploader("원본 파일", key="b_f")
+        r_f = st.file_uploader("참조 파일", key="r_f")
         if b_f and r_f:
             b_df, r_df = load_file_to_df(b_f), load_file_to_df(r_f)
-            b_k = st.selectbox("기준 키", b_df.columns)
-            r_k = st.selectbox("매칭 키", r_df.columns)
-            r_cols = st.multiselect("가져올 컬럼", [c for c in r_df.columns if c != r_k])
+            b_k = st.selectbox("기준 열", b_df.columns)
+            r_k = st.selectbox("참조 열", r_df.columns)
+            r_cols = st.multiselect("추가할 데이터", [c for c in r_df.columns if c != r_k])
             if st.button("🚀 실행"):
                 res = pd.merge(b_df, r_df[[r_k] + r_cols], left_on=b_k, right_on=r_k, how='left')
                 st.dataframe(res.head(100))
-                st.download_button("📥 Excel 다운로드", convert_df_to_excel(res), "match.xlsx")
+                st.download_button("📥 Excel 다운로드", convert_df_to_excel(res), "result.xlsx")
         st.markdown('</div>', unsafe_allow_html=True)
-
-    # Admin Control
-    if st.session_state.user_role == "admin":
-        with tabs[-1]:
-            st.subheader("Monitoring")
-            logs = load_json(LOGS_FILE, [])
-            if logs: st.dataframe(pd.DataFrame(logs[::-1]).head(10), use_container_width=True)
-            st.divider()
-            st.subheader("Users")
-            with st.form("reg"):
-                c1, c2, c3 = st.columns(3)
-                u_n = c1.text_input("성함")
-                u_p = c2.text_input("휴대폰")
-                u_d = c3.number_input("일수", value=30)
-                if st.form_submit_button("등록"):
-                    new_lic = str(uuid.uuid4())[:8].upper()
-                    users = load_json(USERS_FILE, [])
-                    users.append({"name":u_n, "phone":u_p, "license":new_lic, "expiry":(datetime.now()+timedelta(days=u_d)).strftime("%Y-%m-%d")})
-                    save_json(USERS_FILE, users)
-                    st.success(f"[{u_n}] 키: {new_lic}")
-                    st.rerun()
 
 # --- Entry ---
 def main():
+    if 'authenticated' not in st.session_state: st.session_state.authenticated = False
     if not st.session_state.authenticated: show_landing()
     else: show_main_app()
 
