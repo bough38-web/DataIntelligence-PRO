@@ -2,180 +2,293 @@ import streamlit as st
 import pandas as pd
 import os
 import io
+import time
 from app.core.handlers import load_file_to_df, get_sheet_names, extract_columns_fast, extract_unique_values_fast
 from app.core.processors import apply_advanced_conditions, fill_service_small_from_mid, apply_sorting, apply_dedup
 from app.utils.common import clean_text
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Data Intelligence PRO - Web",
-    page_icon="📊",
+    page_title="Data Intelligence PRO | Web",
+    page_icon="💎",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Custom Styling ---
+# --- Custom Styling (Premium Aesthetics) ---
 st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+    
     .main {
-        background-color: #f4f8fb;
+        background-color: #f8fafc;
     }
-    .stButton>button {
-        width: 100%;
-        border-radius: 8px;
-        height: 3em;
-        background-color: #2563eb;
+    
+    /* Premium Sidebar */
+    [data-testid="stSidebar"] {
+        background-image: linear-gradient(#1e293b, #0f172a);
         color: white;
-        font-weight: bold;
     }
-    .expert-card {
-        background-color: #eff6ff;
-        border: 1px solid #bfdbfe;
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+    
+    /* Card Style */
+    .premium-card {
+        background: white;
+        padding: 1.5rem;
         border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        color: #1e40af;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1rem;
+    }
+    
+    .expert-badge {
+        background-color: #dcfce7;
+        color: #166534;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1px solid #bbf7d0;
+    }
+    
+    .stButton>button {
+        background-image: linear-gradient(to right, #2563eb, #7c3aed);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.4);
+    }
+    
+    /* Header */
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(to right, #1e293b, #3b82f6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 1rem;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- App Logic ---
+# --- Session State Helpers ---
+if 'history' not in st.session_state:
+    st.session_state.history = []
+
+def add_log(msg):
+    ts = time.strftime("%H:%M:%S")
+    st.session_state.history.append(f"[{ts}] {msg}")
+
+# --- App Layout ---
 
 def main():
-    st.title("🚀 Data Intelligence PRO")
-    st.sidebar.title("Menu")
+    # Sidebar
+    with st.sidebar:
+        st.image("https://img.icons8.com/fluency/96/database.png", width=80)
+        st.markdown("### Data Intelligence PRO")
+        st.markdown("v2.5.0 Premium Web")
+        st.divider()
+        
+        st.markdown("#### 🚀 전문가 기법 적용")
+        st.caption("활성화된 분석 엔진")
+        st.success("✅ 키 정규화 엔진")
+        st.success("✅ 중복 행 자동 탐지")
+        st.success("✅ 지능형 인코딩 감지")
+        st.success("✅ Regex 패턴 추출기")
+        
+        st.divider()
+        with st.expander("📝 최근 작업 로그"):
+            for log in reversed(st.session_state.history[-10:]):
+                st.caption(log)
     
-    tabs = st.tabs(["🏠 홈", "🔗 데이터 매칭", "📄 단일 파일 추출", "📂 병합", "📈 데이터 분석"])
+    # Main Content
+    st.markdown('<h1 class="main-header">🚀 Data Intelligence PRO</h1>', unsafe_allow_html=True)
+    
+    tabs = st.tabs(["🏠 홈", "🔗 데이터 매칭", "📄 단일 파일 추출", "📂 파일 병합", "📈 심층 분석"])
     
     # --- Home Tab ---
     with tabs[0]:
-        st.header("최첨단 알고리즘 기반 데이터 통합 솔루션")
-        st.info("웹 브라우저에서 편리하게 데이터를 매칭하고 정밀하게 추출하세요.")
+        st.markdown("""
+        <div class="premium-card">
+            <h2>환영합니다!</h2>
+            <p>최첨단 데이터 추출 및 통합 엔진을 웹 브라우저에서 직접 경험하세요.</p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <span class="expert-badge">AI 기반 추론</span>
+                <span class="expert-badge">실시간 파싱</span>
+                <span class="expert-badge">엔터프라이즈 보안</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("주요 기능")
-            st.markdown("""
-            - **🔗 데이터 매칭**: 두 데이터를 키 기준으로 병합 (VLOOKUP)
-            - **📄 단일 파일 추출**: 필터링, 정렬, 중복제거를 포함한 정밀 추출
-            - **📂 병합**: 동일 규격의 여러 파일을 하나의 통합본으로 결합
-            - **📈 데이터 분석**: 데이터 분포, 빈도, 통계 자동 리포팅
-            """)
-        
-        with col2:
-            st.markdown('<div class="expert-card"><b>🚀 전문가 기법 TOP 10</b><br><br>'
-                        '• 키 컬럼 정규화 및 데이터 타입 강제 변환<br>'
-                        '• 참조 데이터 중복 제거 (VLOOKUP 최적화)<br>'
-                        '• 정규식(Regex) 활용 패턴 기반 정밀 추출<br>'
-                        '• 서비스(소) 결측치 자동 추론 채움 기술<br>'
-                        '• 고유값 빈도 분석 및 데이터 품질 검증</div>', unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.info("#### 🔗 데이터 매칭\n키 값을 기준으로 두 데이터를 지능적으로 결합합니다. (VLOOKUP Pro)")
+        with c2:
+            st.warning("#### 📄 정밀 추출\n고급 필터와 정규식을 사용하여 원하는 데이터만 골라냅니다.")
+        with c3:
+            st.success("#### 📂 파일 병합\n다양한 규격의 파일들을 하나의 표준 데이터로 통합합니다.")
 
     # --- Matching Tab ---
     with tabs[1]:
-        st.header("🔗 데이터 매칭 (VLOOKUP)")
-        c1, c2 = st.columns(2)
+        st.subheader("🔗 고도화된 데이터 매칭 (Match Engine v3)")
         
-        with c1:
-            base_file = st.file_uploader("1. 원본 데이터 선택", type=['csv', 'xlsx', 'xls'])
-            if base_file:
-                sheets = get_sheet_names(base_file)
-                base_sheet = st.selectbox("원본 시트", ["(기본)"] + sheets if sheets else ["(기본)"])
-                base_df = load_file_to_df(base_file, sheet_name=None if base_sheet == "(기본)" else base_sheet)
-                base_key = st.selectbox("원본 기준 컬럼(Key)", base_df.columns)
-        
-        with c2:
-            ref_file = st.file_uploader("2. 참조 데이터 선택", type=['csv', 'xlsx', 'xls'])
-            if ref_file:
-                sheets = get_sheet_names(ref_file)
-                ref_sheet = st.selectbox("참조 시트", ["(기본)"] + sheets if sheets else ["(기본)"])
-                ref_df = load_file_to_df(ref_file, sheet_name=None if ref_sheet == "(기본)" else ref_sheet)
-                ref_key = st.selectbox("참조 기준 컬럼(Key)", ref_df.columns)
-                ref_cols = st.multiselect("가져올 참조 컬럼 선택", [c for c in ref_df.columns if c != ref_key])
-        
-        if base_file and ref_file:
-            if st.button("🚀 매칭 실행"):
-                with st.spinner("처리 중..."):
-                    # Normalization
-                    base_df[base_key] = base_df[base_key].astype(str).str.strip()
-                    ref_df[ref_key] = ref_df[ref_key].astype(str).str.strip()
+        with st.container():
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("##### 1. 원본 데이터 (Base)")
+                base_f = st.file_uploader("파일 선택", type=['xlsx', 'csv', 'xls'], key="base")
+                if base_f:
+                    sheets = get_sheet_names(base_f)
+                    b_sheet = st.selectbox("시트", ["(기본)"] + sheets if sheets else ["(기본)"], key="b_s")
+                    b_df = load_file_to_df(base_f, sheet_name=None if b_sheet == "(기본)" else b_sheet)
+                    b_key = st.selectbox("매칭 기준 컬럼 (ID)", b_df.columns, key="b_k")
+            
+            with col2:
+                st.markdown("##### 2. 참조 데이터 (Reference)")
+                ref_f = st.file_uploader("파일 선택", type=['xlsx', 'csv', 'xls'], key="ref")
+                if ref_f:
+                    sheets = get_sheet_names(ref_f)
+                    r_sheet = st.selectbox("시트", ["(기본)"] + sheets if sheets else ["(기본)"], key="r_s")
+                    r_df = load_file_to_df(ref_f, sheet_name=None if r_sheet == "(기본)" else r_sheet)
+                    r_key = st.selectbox("매칭 기준 컬럼 (ID)", r_df.columns, key="r_k")
+                    r_cols = st.multiselect("가져올 컬럼 선택", [c for c in r_df.columns if c != r_key])
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        if base_f and ref_f:
+            st.markdown("#### ⚙️ 매칭 옵션")
+            opt1, opt2 = st.columns(2)
+            with opt1:
+                norm_keys = st.checkbox("키 컬럼 정규화 (공백/대소문자 처리)", value=True)
+            with opt2:
+                dedup_ref = st.checkbox("참조 데이터 중복 제거 (VLOOKUP 스타일)", value=True)
+                
+            if st.button("🚀 지능형 매칭 실행"):
+                with st.spinner("알고리즘 연산 중..."):
+                    df1 = b_df.copy()
+                    df2 = r_df.copy()
                     
-                    # Deduplicate Ref
-                    ref_subset = ref_df[[ref_key] + ref_cols].drop_duplicates(subset=[ref_key])
+                    if norm_keys:
+                        df1[b_key] = df1[b_key].astype(str).str.strip().str.upper()
+                        df2[r_key] = df2[r_key].astype(str).str.strip().str.upper()
                     
-                    # Join
-                    result = pd.merge(base_df, ref_subset, left_on=base_key, right_on=ref_key, how='left')
-                    if base_key != ref_key:
-                        result.drop(columns=[ref_key], inplace=True)
+                    if dedup_ref:
+                        df2 = df2.drop_duplicates(subset=[r_key])
+                        
+                    res = pd.merge(df1, df2[[r_key] + r_cols], left_on=b_key, right_on=r_key, how='left')
+                    if b_key != r_key: res.drop(columns=[r_key], inplace=True)
                     
-                    st.success(f"매칭 완료! 총 {len(result):,}행")
-                    st.dataframe(result.head(100))
+                    add_log(f"매칭 완료: {len(res)}건")
+                    st.success(f"매칭 완료! ({len(res):,}행)")
+                    st.dataframe(res.head(50))
                     
-                    csv = result.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
-                    st.download_button("📥 결과 다운로드 (CSV)", csv, "matching_result.csv", "text/csv")
+                    csv = res.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+                    st.download_button("📥 결과 다운로드", csv, "matched_data.csv", "text/csv")
 
     # --- Single Extraction Tab ---
     with tabs[2]:
-        st.header("📄 단일 파일 추출")
-        f = st.file_uploader("추출할 파일 업로드", type=['csv', 'xlsx', 'xls'])
-        if f:
-            sheets = get_sheet_names(f)
-            sheet = st.selectbox("시트 선택", ["(기본)"] + sheets if sheets else ["(기본)"], key="single_sheet")
-            df = load_file_to_df(f, sheet_name=None if sheet == "(기본)" else sheet)
+        st.subheader("📄 정밀 데이터 추출 (Expert Filter)")
+        f_ext = st.file_uploader("추출용 파일 업로드", type=['xlsx', 'csv', 'xls'], key="ext")
+        if f_ext:
+            sheets = get_sheet_names(f_ext)
+            e_s = st.selectbox("시트", ["(기본)"] + sheets if sheets else ["(기본)"], key="e_s")
+            df_e = load_file_to_df(f_ext, sheet_name=None if e_s == "(기본)" else e_s)
             
-            col_sel = st.multiselect("출력 컬럼 선택", df.columns, default=list(df.columns))
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            st.markdown("##### 🔍 필터링 조건 설정")
             
-            st.divider()
-            st.subheader("🚀 전문가 옵션")
-            fill_svc = st.checkbox("서비스(소) 자동 채움", value=True)
-            
-            if st.button("📤 추출 및 다운로드"):
-                processed = df[col_sel].copy()
-                if fill_svc:
-                    processed = fill_service_small_from_mid(processed)
+            with st.expander("필터링 규칙 추가"):
+                col_f = st.selectbox("필터 컬럼", df_e.columns)
+                mode_f = st.selectbox("조건 방식", ["일치 (Equals)", "포함 (Contains)", "정규식 (Regex)", "시작하는 말", "끝나는 말"])
+                val_f = st.text_input("값 (여러 개일 경우 콤마로 구분)")
                 
-                csv = processed.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
-                st.download_button("📥 추출 결과 다운로드", csv, "extract_result.csv", "text/csv")
-                st.dataframe(processed.head(100))
+            col_sel = st.multiselect("출력할 컬럼 선택", df_e.columns, default=list(df_e.columns))
+            
+            st.markdown("##### 🚀 전문가 처리")
+            c1, c2, c3 = st.columns(3)
+            with c1: fill_svc = st.checkbox("서비스(소) 자동 채움", value=True, key="f_s_w")
+            with c2: dedup_e = st.checkbox("중복 행 제거", key="d_e_w")
+            with c3: sort_e = st.checkbox("정렬 적용", key="s_e_w")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            if st.button("📤 정밀 추출 실행"):
+                with st.spinner("데이터 가공 중..."):
+                    res = df_e[col_sel].copy()
+                    
+                    # Apply Simple Filter if value exists
+                    if val_f:
+                        vals = [x.strip() for x in val_f.split(",")]
+                        if mode_f == "일치 (Equals)":
+                            res = res[res[col_f].astype(str).isin(vals)]
+                        elif mode_f == "포함 (Contains)":
+                            res = res[res[col_f].astype(str).str.contains("|".join(vals), na=False)]
+                        elif mode_f == "정규식 (Regex)":
+                            res = res[res[col_f].astype(str).str.contains(val_f, regex=True, na=False)]
+                    
+                    if fill_svc:
+                        res = fill_service_small_from_mid(res)
+                    if dedup_e:
+                        res = res.drop_duplicates()
+                        
+                    add_log(f"단일 추출 완료: {len(res)}건")
+                    st.success(f"추출 완료! ({len(res):,}행)")
+                    st.dataframe(res.head(50))
+                    csv = res.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+                    st.download_button("📥 추출 결과 다운로드", csv, "extracted_data.csv", "text/csv")
 
     # --- Merge Tab ---
     with tabs[3]:
-        st.header("📂 여러 파일 병합")
-        files = st.file_uploader("병합할 파일들 업로드 (다중 선택 가능)", type=['csv', 'xlsx', 'xls'], accept_multiple_files=True)
+        st.subheader("📂 다중 파일 통합 (Merge Engine)")
+        files = st.file_uploader("병합할 모든 파일 선택", type=['xlsx', 'csv', 'xls'], accept_multiple_files=True)
         if files:
-            st.write(f"업로드된 파일: {len(files)}개")
-            if st.button("🚀 병합 실행"):
+            st.markdown(f'<div class="expert-badge">대기 중인 파일: {len(files)}개</div>', unsafe_allow_html=True)
+            if st.button("🚀 통합 병합 시작"):
                 frames = []
-                progress = st.progress(0)
+                bar = st.progress(0)
                 for i, file in enumerate(files):
-                    df = load_file_to_df(file)
-                    frames.append(df)
-                    progress.progress((i + 1) / len(files))
+                    tmp = load_file_to_df(file)
+                    frames.append(tmp)
+                    bar.progress((i + 1) / len(files))
                 
-                final_df = pd.concat(frames, ignore_index=True)
-                st.success(f"병합 완료! 총 {len(final_df):,}행")
-                csv = final_df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
-                st.download_button("📥 병합 결과 다운로드", csv, "merged_result.csv", "text/csv")
+                final = pd.concat(frames, ignore_index=True)
+                st.success(f"통합 완료! 총 {len(final):,}행 데이터가 병합되었습니다.")
+                csv = final.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig')
+                st.download_button("📥 통합 파일 다운로드", csv, "merged_data_pro.csv", "text/csv")
 
     # --- Analysis Tab ---
     with tabs[4]:
-        st.header("📈 데이터 분석")
-        f_ana = st.file_uploader("분석할 파일 업로드", type=['csv', 'xlsx', 'xls'], key="ana_file")
-        if f_ana:
-            df_ana = load_file_to_df(f_ana)
-            st.write(f"전체 데이터 수: {len(df_ana):,}행")
+        st.subheader("📈 심층 데이터 분석 (Insight Engine)")
+        f_a = st.file_uploader("분석용 파일 업로드", type=['xlsx', 'csv', 'xls'], key="ana")
+        if f_a:
+            df_a = load_file_to_df(f_a)
+            col_a = st.selectbox("분석 대상 컬럼", df_a.columns)
             
-            col_ana = st.selectbox("분석할 컬럼 선택", df_ana.columns)
-            if col_ana:
-                stats_col1, stats_col2 = st.columns(2)
-                with stats_col1:
-                    st.write("### 기본 통계")
-                    st.write(f"- 고유값 수: {df_ana[col_ana].nunique():,}개")
-                    st.write(f"- 결측치 수: {df_ana[col_ana].isna().sum():,}개")
-                
-                with stats_col2:
-                    st.write("### 빈도 분석 (TOP 10)")
-                    freq = df_ana[col_ana].value_counts().head(10)
-                    st.bar_chart(freq)
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            c1.metric("전체 데이터", f"{len(df_a):,}건")
+            c2.metric("고유 값", f"{df_a[col_a].nunique():,}건")
+            c3.metric("결측치", f"{df_a[col_a].isna().sum():,}건")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.write("#### 📊 빈도수 분석 (TOP 15)")
+            top15 = df_a[col_a].value_counts().head(15)
+            st.bar_chart(top15)
+            
+            st.write("#### 📝 데이터 미리보기 (상위 100건)")
+            st.dataframe(df_a.head(100))
 
 if __name__ == "__main__":
     main()
