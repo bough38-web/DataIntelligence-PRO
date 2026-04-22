@@ -253,6 +253,19 @@ def show_landing():
         st.markdown('</div>', unsafe_allow_html=True)
 
 def show_main_app():
+    global settings
+    # Load or initialize settings (including pricing)
+    default_settings = {"master_password": "0303", "price_basic": 39000, "price_pro": 99000, "price_enterprise": 1080000}
+    if SETTINGS_FILE.exists():
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+        except:
+            settings = default_settings
+    else:
+        settings = default_settings
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f, ensure_ascii=False, indent=2)
     # 워크스페이스 전용 헤더 보이기 복구 (선택 사항)
     st.markdown("<style>header {visibility: visible;}</style>", unsafe_allow_html=True)
     
