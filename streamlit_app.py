@@ -42,35 +42,53 @@ LANDING_CSS = """
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     * { font-family: 'Pretendard', sans-serif; }
     
-    /* Center the main container vertically */
+    /* Absolute Centering */
     .main .block-container {
         padding-top: 10rem !important;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: center;
     }
     
     .login-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 24px;
-        padding: 40px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+        border-radius: 28px;
+        padding: 45px 40px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04);
         width: 100%;
+        max-width: 400px;
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Center items inside the card */
         text-align: center;
     }
+    
+    /* Radio Centering */
+    .stRadio { display: flex; justify-content: center; width: 100%; }
+    .stRadio > div { display: flex; justify-content: center; gap: 20px; width: 100%; }
+    
+    /* Button & Input Full Width Centering */
+    .stButton, .stButton > button { width: 100% !important; display: flex; justify-content: center; align-items: center; }
+    .stTextInput { width: 100%; }
     
     .stButton>button {
         background: #2563eb !important;
         color: white !important; font-weight: 700 !important;
-        border-radius: 12px !important; padding: 12px !important; width: 100% !important; border: none !important;
+        border-radius: 12px !important; padding: 14px !important; border: none !important;
+        text-align: center;
     }
     .stTextInput>div>div>input {
-        border-radius: 10px !important; border: 1px solid #e2e8f0 !important; 
-        text-align: center; height: 48px !important;
+        border-radius: 12px !important; border: 1px solid #e2e8f0 !important; 
+        text-align: center; height: 52px !important; font-size: 0.95rem !important;
     }
-    .stRadio > div { justify-content: center; gap: 15px; }
+    
+    .hero-title {
+        color: #2563eb; font-weight: 800; letter-spacing: -2.5px; 
+        font-size: 3.2rem; margin-bottom: 0px; text-align: center;
+    }
+    .hero-sub { color: #64748b; font-size: 1rem; margin-bottom: 2.5rem; text-align: center; }
     </style>
 """
 
@@ -90,15 +108,16 @@ def convert_df_to_excel(df):
 def show_landing():
     st.markdown(LANDING_CSS, unsafe_allow_html=True)
     
-    # Structural Centering using Columns
+    # Hero Section
+    st.markdown("<h1 class='hero-title'>DATA INTEL PRO</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='hero-sub'>Expert Intelligence for Enterprise</p>", unsafe_allow_html=True)
+    
+    # Login Card Centering Wrapper
     empty_l, center_col, empty_r = st.columns([1, 1.2, 1])
     
     with center_col:
-        st.markdown("<h1 style='text-align: center; color: #2563eb; font-weight: 800; letter-spacing: -2px; margin-bottom: 0;'>DATA INTEL PRO</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #64748b; font-size: 1rem; margin-bottom: 2rem;'>Modern Intelligence for Enterprise</p>", unsafe_allow_html=True)
-        
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.markdown("<h4 style='margin-bottom: 25px; font-weight: 700; color: #1e293b;'>보안 로그인</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='margin-bottom: 30px; font-weight: 800; color: #1e293b; text-align: center;'>보안 인증 로그인</h4>", unsafe_allow_html=True)
         
         mode = st.radio("", ["라이선스 사용자", "관리자 접속"], horizontal=True, label_visibility="collapsed")
         
@@ -109,37 +128,35 @@ def show_landing():
         
         if mode == "관리자 접속":
             pwd = st.text_input("ADMIN PWD", type="password", placeholder="마스터 암호", label_visibility="collapsed")
-            if st.button("🚀 어드민 접속"):
+            if st.button("🚀 시스템 접속"):
                 if pwd == settings["master_password"]:
                     st.session_state.authenticated = True
                     st.session_state.user_role = "admin"
-                    add_log("ADMIN", "Admin Login")
+                    add_log("ADMIN", "Admin Access")
                     st.rerun()
                 else: st.error("정보 불일치")
         else:
-            in_name = st.text_input("NAME", placeholder="성함 (예: 홍길동)", label_visibility="collapsed").strip()
+            in_name = st.text_input("USER NAME", placeholder="성함 (예: 홍길동)", label_visibility="collapsed").strip()
             in_lic = st.text_input("LICENSE", type="password", placeholder="라이선스 번호", label_visibility="collapsed").strip()
             if st.button("🚀 시스템 접속"):
                 user = next((u for u in users if u["name"] == in_name and u["license"] == in_lic), None)
                 if user:
                     expiry = datetime.strptime(user["expiry"], "%Y-%m-%d")
-                    if expiry < datetime.now(): st.error("라이선스 만료")
+                    if expiry < datetime.now(): st.error("기간 만료")
                     else:
                         st.session_state.authenticated = True
                         st.session_state.user_role = "user"
                         st.session_state.current_user = user
-                        add_log(in_name, "User Login")
+                        add_log(in_name, "Login Success")
                         st.rerun()
                 else: st.error("정보 불일치")
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #cbd5e1; font-size: 0.75rem; margin-top: 2rem;'>© 2026 Seeun Park. All rights reserved.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #cbd5e1; font-size: 0.75rem; margin-top: 2.5rem;'>© 2026 Seeun Park. All rights reserved.</p>", unsafe_allow_html=True)
 
 # --- Main Application ---
 
 def show_main_app():
-    # Regular App Styling
     st.markdown("""<style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css'); * { font-family: 'Pretendard', sans-serif; }</style>""", unsafe_allow_html=True)
-    
     with st.sidebar:
         st.markdown(f"### 💎 Data Intel PRO")
         st.caption(f"User: {st.session_state.current_user['name'] if st.session_state.current_user else 'ADMIN'}")
@@ -149,18 +166,17 @@ def show_main_app():
         st.divider()
 
     st.markdown("<h2 style='font-weight: 800; color: #1e293b; margin-bottom: 2rem;'>Expert Workspace</h2>", unsafe_allow_html=True)
-    
     tabs = st.tabs(["🔗 매칭", "📄 추출", "📊 분석", "📂 병합"] + (["⚙️ 관리"] if st.session_state.user_role == "admin" else []))
     
     with tabs[0]:
         st.markdown('<div style="background: white; padding: 24px; border-radius: 16px; border: 1px solid #f1f5f9;">', unsafe_allow_html=True)
-        b_f = st.file_uploader("원본 파일", key="b_f")
-        r_f = st.file_uploader("참조 파일", key="r_f")
+        b_f = st.file_uploader("원본", key="b_f")
+        r_f = st.file_uploader("참조", key="r_f")
         if b_f and r_f:
             b_df, r_df = load_file_to_df(b_f), load_file_to_df(r_f)
-            b_k = st.selectbox("기준 열", b_df.columns)
-            r_k = st.selectbox("참조 열", r_df.columns)
-            r_cols = st.multiselect("추가할 데이터", [c for c in r_df.columns if c != r_k])
+            b_k = st.selectbox("기준", b_df.columns)
+            r_k = st.selectbox("참조", r_df.columns)
+            r_cols = st.multiselect("컬럼", [c for c in r_df.columns if c != r_k])
             if st.button("🚀 실행"):
                 res = pd.merge(b_df, r_df[[r_k] + r_cols], left_on=b_k, right_on=r_k, how='left')
                 st.dataframe(res.head(100))
