@@ -331,7 +331,7 @@ def show_main_app():
         st.divider()
 
     st.markdown("<h2 style='font-weight: 900; color: #1e293b; margin-bottom: 2rem;'>Intelligence Workspace</h2>", unsafe_allow_html=True)
-    tabs = st.tabs(["🔗 지능형 매칭", "📄 정밀 추출", "📊 심층 분석", "📂 스마트 병합"] + (["⚙️ 어드민 시스템"] if st.session_state.user_role == "admin" else []))
+    tabs = st.tabs(["🔗 지능형 매칭", "📄 정밀 추출", "📊 심층 분석", "📂 스마트 병합", "💰 요금제"] + (["⚙️ 어드민 시스템"] if st.session_state.user_role == "admin" else []))
     
     with tabs[0]:
         st.markdown('<div style="background: white; border: 1px solid #f1f5f9; border-radius: 18px; padding: 20px;">', unsafe_allow_html=True)
@@ -404,15 +404,25 @@ def show_main_app():
             
             st.divider()
             
-            with st.form("add"):
+            # 관리자 전용 가격 편집 폼
+            with st.expander("💲 가격 설정 관리"):
                 c1, c2, c3 = st.columns(3)
-                u_n, u_p, u_d = c1.text_input("성함"), c2.text_input("연락처"), c3.number_input("일수", 30)
-                if st.form_submit_button("✅ 신규 사용자 발급"):
-                    key = str(uuid.uuid4())[:8].upper()
-                    expiry = (datetime.now() + timedelta(days=int(u_d))).strftime("%Y-%m-%d")
-                    database.create_user(u_n, u_p, key, expiry)
-                    database.add_log("ADMIN", f"Issued new license for {u_n}")
-                    st.success(f"[{u_n}] 등록 키: {key}"); st.rerun()
+                new_basic = c1.number_input("Basic (월)", min_value=0, value=int(settings.get("price_basic", 39000)), step=1000)
+                new_pro = c2.number_input("Professional (월)", min_value=0, value=int(settings.get("price_pro", 99000)), step=1000)
+                new_enterprise = c3.number_input("Enterprise (년)", min_value=0, value=int(settings.get("price_enterprise", 1080000)), step=5000)
+                if st.button("💾 가격 저장", use_container_width=True):
+                    # 업데이트 후 파일에 저장
+                    settings["price_basic"] = new_basic
+                    settings["price_pro"] = new_pro
+                    settings["price_enterprise"] = new_enterprise
+                    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                        json.dump(settings, f, ensure_ascii=False, indent=2)
+                    st.success("가격 정보가 저장되었습니다.")
+                    # 세션 업데이트
+                    st.session_state.price_basic = new_basic
+                    st.session_state.price_pro = new_pro
+                    st.session_state.price_enterprise = new_enterprise
+                    st.rerun()
             
             st.markdown("#### 👥 실시간 회원 관리")
             users_list = database.get_all_users()
