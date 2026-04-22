@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
 import io
-import time
 import json
 import uuid
 import difflib
@@ -98,16 +96,22 @@ PROFESSIONAL_STYLE = """
         letter-spacing: -0.02em;
     }
 
-    /* 슬림 프리미엄 카드 */
-    .login-card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 24px;
-        padding: 40px 40px;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        width: 100%;
-        max-width: 400px;
+    /* 슬림 프리미엄 카드 - Streamlit 컨테이너에 직접 적용 */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        border-radius: 24px !important;
+        padding: 30px 20px !important;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+        width: 100% !important;
+        max-width: 400px !important;
+        margin: 0 auto !important;
+    }
+    
+    /* 중앙 정렬을 위한 컨테이너 래퍼 */
+    .stApp > header {
+        background-color: transparent !important;
     }
 
     /* 입력창 및 라디오 버튼 커스텀 */
@@ -197,50 +201,48 @@ def show_landing():
             </div>
         ''', unsafe_allow_html=True)
         
-        # 로그인 카드 섹션
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center; font-weight:700; color:#475569; margin-bottom:20px;'>SECURE ACCESS</p>", unsafe_allow_html=True)
-        
-        mode = st.radio("Access Mode", ["사용자 접속", "관리자 모드"], horizontal=True, label_visibility="collapsed")
-        
-        st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
-        
-        # 실제 데이터베이스 로드
-        users = load_json(USERS_FILE, [])
-        settings = load_json(SETTINGS_FILE, {"master_password": "0303"})
-        
-        # 실제 인증 로직 결합
-        if mode == "관리자 모드":
-            pwd = st.text_input("ADMIN PWD", type="password", placeholder="Master Password", label_visibility="collapsed")
-            if st.button("Authenticate System"):
-                if pwd == settings["master_password"]: 
-                    st.session_state.authenticated = True
-                    st.session_state.user_role = "admin"
-                    st.session_state.current_user = {"name": "ADMIN"}
-                    add_log("ADMIN", "System Unlock")
-                    st.rerun()
-                else:
-                    st.error("Invalid Credential")
-        else:
-            name = st.text_input("NAME", placeholder="Full Name", label_visibility="collapsed")
-            key = st.text_input("LICENSE", type="password", placeholder="License Key", label_visibility="collapsed")
-            if st.button("Sign In to Workspace"):
-                u = next((x for x in users if x["name"] == name and x["license"] == key), None)
-                if u:
-                    if datetime.strptime(u["expiry"], "%Y-%m-%d") < datetime.now(): 
-                        st.error("만료된 라이선스입니다.")
-                    else:
-                        st.session_state.authenticated, st.session_state.user_role, st.session_state.current_user = True, "user", u
-                        add_log(name, "Login Success")
+        # 로그인 카드 섹션 (Streamlit Native Container)
+        with st.container(border=True):
+            st.markdown("<p style='text-align:center; font-weight:700; color:#475569; margin-bottom:20px; font-size:1.1rem;'>SECURE ACCESS</p>", unsafe_allow_html=True)
+            
+            mode = st.radio("Access Mode", ["사용자 접속", "관리자 모드"], horizontal=True, label_visibility="collapsed")
+            
+            st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+            
+            # 실제 데이터베이스 로드
+            users = load_json(USERS_FILE, [])
+            settings = load_json(SETTINGS_FILE, {"master_password": "0303"})
+            
+            # 실제 인증 로직 결합
+            if mode == "관리자 모드":
+                pwd = st.text_input("ADMIN PWD", type="password", placeholder="Master Password", label_visibility="collapsed")
+                if st.button("Authenticate System", use_container_width=True):
+                    if pwd == settings["master_password"]: 
+                        st.session_state.authenticated = True
+                        st.session_state.user_role = "admin"
+                        st.session_state.current_user = {"name": "ADMIN"}
+                        add_log("ADMIN", "System Unlock")
                         st.rerun()
-                else: 
-                    st.error("인증 정보가 올바르지 않습니다.")
-                
-        st.markdown('</div>', unsafe_allow_html=True) 
+                    else:
+                        st.error("Invalid Credential")
+            else:
+                name = st.text_input("NAME", placeholder="Full Name", label_visibility="collapsed")
+                key = st.text_input("LICENSE", type="password", placeholder="License Key", label_visibility="collapsed")
+                if st.button("Sign In to Workspace", use_container_width=True):
+                    u = next((x for x in users if x["name"] == name and x["license"] == key), None)
+                    if u:
+                        if datetime.strptime(u["expiry"], "%Y-%m-%d") < datetime.now(): 
+                            st.error("만료된 라이선스입니다.")
+                        else:
+                            st.session_state.authenticated, st.session_state.user_role, st.session_state.current_user = True, "user", u
+                            add_log(name, "Login Success")
+                            st.rerun()
+                    else: 
+                        st.error("인증 정보가 올바르지 않습니다.")
         
         # 하단 푸터
-        st.markdown("<p style='margin-top:30px; color:#94a3b8; font-size:0.8rem;'>© 2026 Data Intel Pro. All rights reserved.</p>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True) 
+        st.markdown("<p style='text-align:center; margin-top:30px; color:#94a3b8; font-size:0.8rem;'>© 2026 Data Intel Pro. All rights reserved.</p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def show_main_app():
     # 워크스페이스 전용 헤더 보이기 복구 (선택 사항)
