@@ -41,67 +41,64 @@ if 'authenticated' not in st.session_state: st.session_state.authenticated = Fal
 if 'user_role' not in st.session_state: st.session_state.user_role = "user"
 if 'current_user' not in st.session_state: st.session_state.current_user = None
 
-# --- MODERN PROFESSIONAL CSS ---
+# --- PERFECT CENTER & SLIM CARD CSS ---
 st.markdown("""
     <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     
     * { font-family: 'Pretendard', sans-serif; }
     
-    /* Perfect Center */
-    .main .block-container {
+    /* Force Absolute Centering for the entire block */
+    [data-testid="stAppViewContainer"] > section:nth-child(2) > div:nth-child(1) > div > div {
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        height: 100vh;
-        max-width: 100%;
-        background-color: #fcfcfd;
-        overflow: hidden;
+        min-height: 100vh;
+        width: 100%;
     }
+
+    .stApp { background-color: #fcfcfd; }
     
-    .stApp { background: transparent; }
-    
-    .hero-container { text-align: center; margin-bottom: 2rem; }
+    .hero-container { text-align: center; margin-bottom: 1.5rem; }
     
     .hero-title {
-        font-size: 4rem; font-weight: 800; color: #111827;
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-        letter-spacing: -3px; margin-bottom: 5px;
+        font-size: 3.5rem; font-weight: 800; color: #2563eb;
+        letter-spacing: -2.5px; margin-bottom: 0px;
     }
-    .hero-sub { color: #6b7280; font-size: 1.2rem; font-weight: 500; }
+    .hero-sub { color: #6b7280; font-size: 1.1rem; font-weight: 500; margin-bottom: 2rem; }
     
-    /* Clean Solid Card */
+    /* 60% Reduced Slim Card (approx 380px) */
     .login-card {
         background: #ffffff;
-        border: 1px solid #f1f5f9;
-        border-radius: 32px;
-        padding: 50px;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.04);
-        width: 100%;
-        max-width: 460px;
+        border: 1px solid #e2e8f0;
+        border-radius: 28px;
+        padding: 45px 35px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
+        width: 380px; /* Reduced Width */
         text-align: center;
+        margin: 0 auto;
     }
     
     .stButton>button {
         background: #2563eb !important;
         color: white !important; font-weight: 700 !important;
-        border-radius: 12px !important; padding: 15px !important; width: 100% !important; border: none !important;
+        border-radius: 12px !important; padding: 14px !important; width: 100% !important; border: none !important;
         transition: all 0.2s ease !important;
     }
     .stButton>button:hover { background: #1d4ed8 !important; transform: translateY(-1px); }
     
     .stTextInput>div>div>input {
-        border-radius: 12px !important; border: 1.5px solid #e2e8f0 !important; 
-        text-align: center; height: 55px !important; font-size: 1rem !important;
+        border-radius: 12px !important; border: 1px solid #e2e8f0 !important; 
+        text-align: center; height: 50px !important; font-size: 0.95rem !important;
         background-color: #f8fafc !important;
     }
     .stTextInput>div>div>input:focus { border-color: #2563eb !important; background-color: #ffffff !important; }
     
-    .footer { position: fixed; bottom: 20px; right: 30px; color: #cbd5e1; font-size: 0.85rem; }
+    .footer { position: fixed; bottom: 20px; color: #cbd5e1; font-size: 0.8rem; text-align: center; width: 100%; }
     
-    .stRadio > div { justify-content: center; gap: 20px; }
+    /* Center the Radio Buttons */
+    .stRadio > div { display: flex; justify-content: center; gap: 15px; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -125,7 +122,7 @@ def show_landing():
     st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown('<div class="login-card">', unsafe_allow_html=True)
-    st.markdown("<h3 style='margin-bottom: 30px; font-weight: 700; color: #111827;'>보안 인증 로그인</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-bottom: 25px; font-weight: 700; color: #111827; font-size: 1.5rem;'>보안 인증 로그인</h3>", unsafe_allow_html=True)
     
     mode = st.radio("", ["라이선스 사용자", "관리자 접속"], horizontal=True, label_visibility="collapsed")
     
@@ -135,14 +132,14 @@ def show_landing():
     st.write("")
     
     if mode == "관리자 접속":
-        pwd = st.text_input("ADMIN PWD", type="password", placeholder="마스터 암호 입력", label_visibility="collapsed")
+        pwd = st.text_input("ADMIN PWD", type="password", placeholder="마스터 암호", label_visibility="collapsed")
         if st.button("🚀 어드민 접속"):
             if pwd == settings["master_password"]:
                 st.session_state.authenticated = True
                 st.session_state.user_role = "admin"
                 add_log("ADMIN", "Admin Access Success")
                 st.rerun()
-            else: st.error("정보가 일치하지 않습니다.")
+            else: st.error("정보 불일치")
     else:
         in_name = st.text_input("USER NAME", placeholder="성함 (예: 홍길동)", label_visibility="collapsed").strip()
         in_lic = st.text_input("LICENSE NUMBER", type="password", placeholder="라이선스 번호", label_visibility="collapsed").strip()
@@ -150,14 +147,14 @@ def show_landing():
             user = next((u for u in users if u["name"] == in_name and u["license"] == in_lic), None)
             if user:
                 expiry = datetime.strptime(user["expiry"], "%Y-%m-%d")
-                if expiry < datetime.now(): st.error("만료된 라이선스입니다.")
+                if expiry < datetime.now(): st.error("만료되었습니다.")
                 else:
                     st.session_state.authenticated = True
                     st.session_state.user_role = "user"
                     st.session_state.current_user = user
                     add_log(in_name, "User Login Success")
                     st.rerun()
-            else: st.error("이름 또는 번호가 일치하지 않습니다.")
+            else: st.error("정보 불일치")
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="footer">© 2026 Seeun Park. All rights reserved.</div>', unsafe_allow_html=True)
 
@@ -180,7 +177,7 @@ def show_main_app():
                     if u["license"] == st.session_state.current_user["license"]:
                         u["license"] = new_p
                 save_json(USERS_FILE, users)
-                st.success("업데이트 완료")
+                st.success("완료")
 
     st.markdown("<h2 style='font-weight: 800; color: #111827; margin-bottom: 2rem;'>Expert Workspace</h2>", unsafe_allow_html=True)
     
@@ -224,7 +221,7 @@ def show_main_app():
                     users = load_json(USERS_FILE, [])
                     users.append({"name":u_n, "phone":u_p, "license":new_lic, "expiry":(datetime.now()+timedelta(days=u_d)).strftime("%Y-%m-%d")})
                     save_json(USERS_FILE, users)
-                    st.success(f"[{u_n}] 발급 키: {new_lic}")
+                    st.success(f"[{u_n}] 키: {new_lic}")
                     st.rerun()
 
 # --- Entry ---
