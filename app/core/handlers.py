@@ -39,7 +39,12 @@ def read_csv_header_fast(file_path, scan_rows=200):
     raise last_error
 
 def read_xlsx_header_fast(file_path, sheet_name=None, scan_rows=200):
-    wb = load_workbook(file_path, read_only=True, data_only=True)
+    try:
+        wb = load_workbook(file_path, read_only=True, data_only=True)
+    except Exception as e:
+        if is_html_content(file_path):
+            return extract_columns_fast(file_path, sheet_name=sheet_name, force_html=True), 0
+        raise e
     if sheet_name:
         if sheet_name not in wb.sheetnames:
             wb.close()
@@ -177,11 +182,19 @@ def load_file_to_df(file_path, sheet_name=None, header_row_idx=None, force_html=
         return trim_empty_columns_df(body)
 
     if ext in [".xlsx", ".xlsm"]:
-        wb = load_workbook(file_path, read_only=True, data_only=True)
+        try:
+            wb = load_workbook(file_path, read_only=True, data_only=True)
+        except Exception as e:
+            # If it's not a valid zip, it might be HTML content with wrong extension
+            if is_html_content(file_path):
+                return load_file_to_df(file_path, sheet_name=sheet_name, header_row_idx=header_row_idx, force_html=True)
+            raise e
+            
         if sheet_name:
             if sheet_name not in wb.sheetnames:
                 wb.close()
-                raise ValueError(f"시트 '{sheet_name}' 이(가) 파일에 없습니다: {os.path.basename(file_path)}")
+                name_str = file_path if isinstance(file_path, str) else getattr(file_path, "name", "file")
+                raise ValueError(f"시트 '{sheet_name}' 이(가) 파일에 없습니다: {os.path.basename(name_str)}")
             ws = wb[sheet_name]
         else:
             ws = wb[wb.sheetnames[0]]
