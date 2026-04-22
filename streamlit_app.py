@@ -403,6 +403,32 @@ def show_main_app():
                 st.dataframe(res.head(100), use_container_width=True)
                 st.download_button("📥 병합 결과 다운로드", convert_to_excel(res), "merged.xlsx")
         st.markdown('</div>', unsafe_allow_html=True)
+# 📦 요금제 탭 (사용자용)
+with tabs[4]:
+    st.markdown("<style>
+    .pricing-card {background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align:center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom:20px;}
+    .pricing-title {font-size:1.4rem; font-weight:700; color:#1e293b; margin-bottom:10px;}
+    .pricing-price {font-size:1.6rem; font-weight:600; color:#2563eb; margin-bottom:15px;}
+    .pricing-desc {font-size:0.9rem; color:#64748b; margin-bottom:10px;}
+    </style>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class='pricing-card'>
+        <div class='pricing-title'>Basic Plan</div>
+        <div class='pricing-price'>₩{st.session_state.price_basic:,} / 월</div>
+        <div class='pricing-desc'>소규모 팀용 • 기본 매칭·추출</div>
+    </div>
+    <div class='pricing-card'>
+        <div class='pricing-title'>Professional Plan</div>
+        <div class='pricing-price'>₩{st.session_state.price_pro:,} / 월</div>
+        <div class='pricing-desc'>중간 규모 기업 • 고급 매칭·분석</div>
+    </div>
+    <div class='pricing-card'>
+        <div class='pricing-title'>Enterprise Plan</div>
+        <div class='pricing-price'>₩{st.session_state.price_enterprise:,} / 연</div>
+        <div class='pricing-desc'>대기업 • 무제한·전용 API·SLA</div>
+    </div>
+    """)
+    st.markdown("<p style='text-align:center; font-size:0.9rem; color:#64748b;'>※ 가격은 부가세 별도이며, 관리자 모드에서 수정 가능합니다.</p>", unsafe_allow_html=True)
 
     if st.session_state.user_role == "admin":
         with tabs[-1]:
