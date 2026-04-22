@@ -159,8 +159,8 @@ def main():
             - **멀티 포맷 내보내기 (Multi-Export)**: 인코딩 깨짐 없는 깨끗한 엑셀(XLSX) 및 CSV 파일을 즉시 생성합니다.
             """)
         with c2:
-            # Fixed image using a high-quality verified tech illustration from Unsplash
-            st.image("https://images.unsplash.com/photo-1551288049-bbbda546697a?auto=format&fit=crop&q=80&w=1000", 
+            # Replaced with a highly stable Wikimedia Commons image for guaranteed loading
+            st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Data_visualization_process_v1.png/1024px-Data_visualization_process_v1.png", 
                      caption="Next-Gen Analytics Engine", use_container_width=True)
 
     # --- Smart Matching ---
