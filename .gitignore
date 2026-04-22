@@ -8,3 +8,6 @@ presets/
 *.xlsx
 *.xlsm
 *.xls
+build/
+dist/
+*.spec
