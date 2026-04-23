@@ -249,7 +249,7 @@ def show_landing():
                             st.info("위 키를 복사한 후 상단의 **'사용자 접속'** 탭을 눌러 로그인해 주세요.")
         
         # 하단 푸터
-        st.markdown("<p style='text-align:center; margin-top:30px; color:#94a3b8; font-size:0.8rem;'>© 2026 Data Intel Pro. All rights reserved.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; margin-top:30px; color:#94a3b8; font-size:0.8rem;'>© 2026 데이터 인텔리전스 PRO. 모든 권리 보유.</p>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 def show_main_app():
@@ -383,6 +383,7 @@ def show_main_app():
                 st.dataframe(res.head(100), use_container_width=True)
                 st.download_button("📥 병합 결과 다운로드", convert_to_excel(res), "merged.xlsx")
         st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("""<style>
         .pricing-title {font-size:1.4rem; font-weight:700; color:#1e293b; margin-bottom:10px;}
         .pricing-price {font-size:1.6rem; font-weight:600; color:#2563eb; margin-bottom:15px;}
         .pricing-desc {font-size:0.9rem; color:#64748b; margin-bottom:10px;}
