@@ -129,6 +129,21 @@ def add_log(user_name, action):
     conn.commit()
     conn.close()
 
+def delete_user(license_key):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM users WHERE license = ?", (license_key,))
+    conn.commit()
+    conn.close()
+
+def update_user_full(license_key, name, phone, expiry, role):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("UPDATE users SET name = ?, phone = ?, expiry = ?, role = ? WHERE license = ?",
+              (name, phone, expiry, role, license_key))
+    conn.commit()
+    conn.close()
+
 def record_payment(user_id, amount, payment_key, order_id, plan_name):
     conn = get_connection()
     c = conn.cursor()
@@ -159,6 +174,29 @@ def get_metrics():
     total_users = c.fetchone()[0]
     conn.close()
     return {"revenue": revenue, "active_users": active_users, "total_users": total_users}
+
+def get_all_logs(limit=200):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM logs ORDER BY timestamp DESC LIMIT ?", (limit,))
+    logs = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return logs
+
+def get_log_stats():
+    conn = get_connection()
+    c = conn.cursor()
+    # Actions per day for the last 7 days
+    c.execute("""
+        SELECT date(timestamp) as date, COUNT(*) as count 
+        FROM logs 
+        WHERE timestamp >= date('now', '-7 days')
+        GROUP BY date(timestamp)
+        ORDER BY date ASC
+    """)
+    stats = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return stats
 
 # Initialize DB on load
 init_db()

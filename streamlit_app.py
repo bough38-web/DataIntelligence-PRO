@@ -471,15 +471,52 @@ def show_main_app():
             users_list = database.get_all_users()
             if users_list:
                 df = pd.DataFrame(users_list)
+                # 표시할 열 설정 및 편집 가능 여부 설정
                 df = df[['id', 'name', 'phone', 'license', 'expiry', 'role', 'created_at']]
                 
-                # data_editor로 시각화 (수정은 막아두고 UI만)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                edited_df = st.data_editor(
+                    df,
+                    use_container_width=True,
+                    hide_index=True,
+                    num_rows="dynamic", # 행 추가/삭제 가능
+                    column_config={
+                        "id": st.column_config.NumberColumn("ID", disabled=True),
+                        "created_at": st.column_config.TextColumn("가입일", disabled=True),
+                        "license": st.column_config.TextColumn("라이선스", disabled=True),
+                        "role": st.column_config.SelectboxColumn("역할", options=["user", "admin"]),
+                        "expiry": st.column_config.DateColumn("만료일")
+                    },
+                    key="user_editor"
+                )
+
+                if st.button("💾 회원 정보 일괄 저장", use_container_width=True):
+                    # 변경된 내용 반영
+                    for index, row in edited_df.iterrows():
+                        # 기존 리스트와 비교하여 변경된 행만 업데이트 가능하지만, 
+                        # 여기서는 단순화를 위해 전체 업데이트 또는 license 기반 업데이트 수행
+                        database.update_user_full(
+                            row['license'], 
+                            row['name'], 
+                            row['phone'], 
+                            str(row['expiry']), 
+                            row['role']
+                        )
+                    st.success("회원 정보가 업데이트되었습니다.")
+                    st.rerun()
                 
-                st.markdown("##### 🛠 수동 연장 컨트롤")
-                col_i, col_a = st.columns([3, 1])
-                target_license = col_i.selectbox("사용자 라이선스 선택", [u['license'] for u in users_list])
-                if col_a.button("선택 회원 30일 연장", use_container_width=True):
+                st.divider()
+                st.markdown("##### 🗑 회원 삭제 및 수동 연장")
+                col_i, col_d, col_a = st.columns([2, 1, 1])
+                target_license = col_i.selectbox("대상 라이선스 선택", [u['license'] for u in users_list], key="target_select")
+                
+                if col_d.button("❌ 선택 회원 삭제", use_container_width=True):
+                    if target_license:
+                        database.delete_user(target_license)
+                        database.add_log("ADMIN", f"Deleted user with license {target_license}")
+                        st.warning(f"라이선스 {target_license} 회원이 삭제되었습니다.")
+                        st.rerun()
+                
+                if col_a.button("➕ 30일 연장", use_container_width=True):
                     for u in users_list:
                         if u['license'] == target_license:
                             current = datetime.strptime(u['expiry'], "%Y-%m-%d")
@@ -487,6 +524,20 @@ def show_main_app():
                             database.update_user_expiry(target_license, (current + timedelta(days=30)).strftime("%Y-%m-%d"))
                             database.add_log("ADMIN", f"Extended license {target_license} by 30 days")
                             st.success("연장 완료!"); st.rerun()
+
+            st.divider()
+            st.markdown("#### 📈 시스템 활동 로그")
+            log_stats = database.get_log_stats()
+            if log_stats:
+                stats_df = pd.DataFrame(log_stats)
+                st.line_chart(stats_df.set_index('date'), use_container_width=True)
+            
+            with st.expander("📄 상세 활동 이력 보기"):
+                logs = database.get_all_logs(limit=100)
+                if logs:
+                    st.table(pd.DataFrame(logs)[['timestamp', 'user_name', 'action']])
+                else:
+                    st.info("기록된 로그가 없습니다.")
 
 def main():
     if 'authenticated' not in st.session_state: st.session_state.authenticated = False
