@@ -405,12 +405,17 @@ def show_main_app():
         st.markdown('</div>', unsafe_allow_html=True)
 # 📦 요금제 탭 (사용자용)
 with tabs[4]:
-    st.markdown("<style>
-    .pricing-card {background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align:center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom:20px;}
-    .pricing-title {font-size:1.4rem; font-weight:700; color:#1e293b; margin-bottom:10px;}
-    .pricing-price {font-size:1.6rem; font-weight:600; color:#2563eb; margin-bottom:15px;}
-    .pricing-desc {font-size:0.9rem; color:#64748b; margin-bottom:10px;}
-    </style>", unsafe_allow_html=True)
+    st.markdown("""<style>
+        .pricing-card {background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align:center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom:20px;}
+        .pricing-title {font-size:1.4rem; font-weight:700; color:#1e293b; margin-bottom:10px;}
+        .pricing-price {font-size:1.6rem; font-weight:600; color:#2563eb; margin-bottom:15px;}
+        .pricing-desc {font-size:0.9rem; color:#64748b; margin-bottom:10px;}
+        </style>""", unsafe_allow_html=True)
+    
+
+
+
+
     st.markdown(f"""
     <div class='pricing-card'>
         <div class='pricing-title'>Basic Plan</div>
