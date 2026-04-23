@@ -370,6 +370,29 @@ def show_main_app():
         st.markdown("#### 📄 조건별 데이터 정밀 추출")
         f = st.file_uploader("추출 파일 업로드", key="ex_f")
         if f:
+            df = load_file_to_df(f)
+            col_to_filter = st.selectbox("추출 기준 열", df.columns)
+            search_val = st.text_input("찾을 값 (키워드)")
+            if st.button("🚀 정밀 추출 시작"):
+                res = df[df[col_to_filter].astype(str).str.contains(search_val, na=False)]
+                st.write(f"검색 결과: {len(res)}건 발견")
+                st.dataframe(res.head(100), use_container_width=True)
+                st.download_button("📥 추출 결과 다운로드", convert_to_excel(res), "extracted.xlsx")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with tabs[2]:
+        st.markdown('<div style="background: white; border: 1px solid #f1f5f9; border-radius: 18px; padding: 20px;">', unsafe_allow_html=True)
+        st.markdown("#### 📊 데이터 심층 통계 분석")
+        f = st.file_uploader("분석 파일 업로드", key="an_f")
+        if f:
+            df = load_file_to_df(f)
+            st.write("기본 통계 요약")
+            st.dataframe(df.describe(), use_container_width=True)
+            col = st.selectbox("분석할 열 선택", df.columns)
+            if st.button("📈 분포 분석"):
+                st.bar_chart(df[col].value_counts().head(20))
+        st.markdown('</div>', unsafe_allow_html=True)
+
     with tabs[3]:
         st.markdown('<div style="background: white; border: 1px solid #f1f5f9; border-radius: 18px; padding: 20px;">', unsafe_allow_html=True)
         st.markdown("#### 📂 스마트 데이터 병합 (Multi-File)")
@@ -383,34 +406,33 @@ def show_main_app():
                 st.dataframe(res.head(100), use_container_width=True)
                 st.download_button("📥 병합 결과 다운로드", convert_to_excel(res), "merged.xlsx")
         st.markdown('</div>', unsafe_allow_html=True)
+
+    with tabs[4]:
         st.markdown("""<style>
         .pricing-title {font-size:1.4rem; font-weight:700; color:#1e293b; margin-bottom:10px;}
         .pricing-price {font-size:1.6rem; font-weight:600; color:#2563eb; margin-bottom:15px;}
         .pricing-desc {font-size:0.9rem; color:#64748b; margin-bottom:10px;}
         </style>""", unsafe_allow_html=True)
-    
+        
+        st.markdown(f"""
+        <div class='pricing-card'>
+            <div class='pricing-title'>베이직 플랜</div>
+            <div class='pricing-price'>₩{st.session_state.price_basic:,} / 월</div>
+            <div class='pricing-desc'>소규모 팀용 • 기본 매칭·추출</div>
+        </div>
+        <div class='pricing-card'>
+            <div class='pricing-title'>프로페셔널 플랜</div>
+            <div class='pricing-price'>₩{st.session_state.price_pro:,} / 월</div>
+            <div class='pricing-desc'>중간 규모 기업 • 고급 매칭·분석</div>
+        </div>
+        <div class='pricing-card'>
+            <div class='pricing-title'>엔터프라이즈 플랜</div>
+            <div class='pricing-price'>₩{st.session_state.price_enterprise:,} / 연</div>
+            <div class='pricing-desc'>대기업 • 무제한·전용 API·SLA</div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center; font-size:0.9rem; color:#64748b;'>※ 가격은 부가세 별도이며, 관리자 모드에서 수정 가능합니다.</p>", unsafe_allow_html=True)
 
-
-
-
-    st.markdown(f"""
-    <div class='pricing-card'>
-        <div class='pricing-title'>베이직 플랜</div>
-        <div class='pricing-price'>₩{st.session_state.price_basic:,} / 월</div>
-        <div class='pricing-desc'>소규모 팀용 • 기본 매칭·추출</div>
-    </div>
-    <div class='pricing-card'>
-        <div class='pricing-title'>프로페셔널 플랜</div>
-        <div class='pricing-price'>₩{st.session_state.price_pro:,} / 월</div>
-        <div class='pricing-desc'>중간 규모 기업 • 고급 매칭·분석</div>
-    </div>
-    <div class='pricing-card'>
-        <div class='pricing-title'>엔터프라이즈 플랜</div>
-        <div class='pricing-price'>₩{st.session_state.price_enterprise:,} / 연</div>
-        <div class='pricing-desc'>대기업 • 무제한·전용 API·SLA</div>
-    </div>
-    """)
-    st.markdown("<p style='text-align:center; font-size:0.9rem; color:#64748b;'>※ 가격은 부가세 별도이며, 관리자 모드에서 수정 가능합니다.</p>", unsafe_allow_html=True)
 
     if st.session_state.user_role == "admin":
         with tabs[-1]:
