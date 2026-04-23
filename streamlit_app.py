@@ -33,7 +33,7 @@ except ImportError:
 # ==========================================
 # 2. 디자인 시스템 (사용자 제공 프리미엄 UI)
 # ==========================================
-st.set_page_config(page_title="Data Intel PRO", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="데이터 인텔리전스 PRO", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
 PROFESSIONAL_STYLE = """
 <style>
@@ -189,9 +189,9 @@ def show_landing():
         
         # 로그인 카드 섹션 (Streamlit Native Container)
         with st.container(border=True):
-            st.markdown("<p style='text-align:center; font-weight:700; color:#475569; margin-bottom:15px; font-size:1.0rem;'>SECURE ACCESS</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:center; font-weight:700; color:#475569; margin-bottom:15px; font-size:1.0rem;'>보안 액세스</p>", unsafe_allow_html=True)
             
-            mode = st.radio("Access Mode", ["사용자 접속", "무료체험 가입", "관리자 모드"], horizontal=True, label_visibility="collapsed")
+            mode = st.radio("접속 모드", ["사용자 접속", "무료체험 가입", "관리자 모드"], horizontal=True, label_visibility="collapsed")
             
             st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
             
@@ -204,9 +204,9 @@ def show_landing():
                 except: pass
             
             if mode == "사용자 접속":
-                name = st.text_input("NAME", placeholder="Full Name", label_visibility="collapsed")
-                key = st.text_input("LICENSE", type="password", placeholder="License Key", label_visibility="collapsed")
-                if st.button("Sign In to Workspace", use_container_width=True):
+                name = st.text_input("이름", placeholder="전체 이름", label_visibility="collapsed")
+                key = st.text_input("라이선스", type="password", placeholder="라이선스 키", label_visibility="collapsed")
+                if st.button("워크스페이스 로그인", use_container_width=True):
                     u = database.get_user_by_license(name, key)
                     if u:
                         if datetime.strptime(u["expiry"], "%Y-%m-%d") < datetime.now(): 
@@ -218,8 +218,8 @@ def show_landing():
                     else: 
                         st.error("인증 정보가 올바르지 않습니다.")
             elif mode == "관리자 모드":
-                pwd = st.text_input("ADMIN PWD", type="password", placeholder="Master Password", label_visibility="collapsed")
-                if st.button("Authenticate System", use_container_width=True):
+                pwd = st.text_input("관리자 비밀번호", type="password", placeholder="마스터 비밀번호", label_visibility="collapsed")
+                if st.button("시스템 인증", use_container_width=True):
                     if pwd == settings["master_password"]: 
                         st.session_state.authenticated = True
                         st.session_state.user_role = "admin"
@@ -260,23 +260,25 @@ def show_main_app():
         try:
             with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                 settings = json.load(f)
-        except:
+        except Exception as e:
+            st.error(f"설정 파일 로드 실패: {e}")
             settings = default_settings
     else:
         settings = default_settings
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(settings, f, ensure_ascii=False, indent=2)
+    # Ensure pricing values are stored in session state for UI
+    st.session_state.price_basic = int(settings.get("price_basic", 39000))
+    st.session_state.price_pro = int(settings.get("price_pro", 99000))
+    st.session_state.price_enterprise = int(settings.get("price_enterprise", 1080000))
     # 워크스페이스 전용 헤더 보이기 복구 (선택 사항)
     st.markdown("<style>header {visibility: visible;}</style>", unsafe_allow_html=True)
-    
+
     with st.sidebar:
         st.markdown(f"### 💎 Data Intel PRO")
-        
         user = st.session_state.current_user
         role = st.session_state.user_role
-        
         st.info(f"👤 접속자: {user.get('name')}")
-        
         if role == "user":
             expiry_str = user.get("expiry", "")
             if expiry_str:
@@ -338,12 +340,12 @@ def show_main_app():
                         st.balloons()
                         
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🚪 Logout", use_container_width=True):
+        if st.button("🚪 로그아웃", use_container_width=True):
             st.session_state.authenticated = False
             st.rerun()
         st.divider()
 
-    st.markdown("<h2 style='font-weight: 900; color: #1e293b; margin-bottom: 2rem;'>Intelligence Workspace</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='font-weight: 900; color: #1e293b; margin-bottom: 2rem;'>지능형 워크스페이스</h2>", unsafe_allow_html=True)
     tabs = st.tabs(["🔗 지능형 매칭", "📄 정밀 추출", "📊 심층 분석", "📂 스마트 병합", "💰 요금제"] + (["⚙️ 어드민 시스템"] if st.session_state.user_role == "admin" else []))
     
     with tabs[0]:
@@ -368,28 +370,6 @@ def show_main_app():
         st.markdown("#### 📄 조건별 데이터 정밀 추출")
         f = st.file_uploader("추출 파일 업로드", key="ex_f")
         if f:
-            df = load_file_to_df(f)
-            col = st.selectbox("필터 기준 열", df.columns)
-            val = st.text_input("필터 키워드 (공백 시 전체)")
-            if st.button("🚀 정밀 추출"):
-                res = df[df[col].astype(str).str.contains(val)] if val else df
-                st.dataframe(res, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with tabs[2]:
-        st.markdown('<div style="background: white; border: 1px solid #f1f5f9; border-radius: 18px; padding: 20px;">', unsafe_allow_html=True)
-        st.markdown("#### 📊 데이터 품질 보고서 및 시각화")
-        f = st.file_uploader("분석 파일 업로드", key="an_f")
-        if f:
-            df = load_file_to_df(f)
-            st.write("##### 🧐 품질 요약")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("전체 행", len(df))
-            c2.metric("결측치(Null)", df.isnull().sum().sum())
-            c3.metric("중복 행", df.duplicated().sum())
-            st.area_chart(df.select_dtypes(include=[np.number]).iloc[:, :3])
-        st.markdown('</div>', unsafe_allow_html=True)
-
     with tabs[3]:
         st.markdown('<div style="background: white; border: 1px solid #f1f5f9; border-radius: 18px; padding: 20px;">', unsafe_allow_html=True)
         st.markdown("#### 📂 스마트 데이터 병합 (Multi-File)")
@@ -403,10 +383,6 @@ def show_main_app():
                 st.dataframe(res.head(100), use_container_width=True)
                 st.download_button("📥 병합 결과 다운로드", convert_to_excel(res), "merged.xlsx")
         st.markdown('</div>', unsafe_allow_html=True)
-# 📦 요금제 탭 (사용자용)
-with tabs[4]:
-    st.markdown("""<style>
-        .pricing-card {background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align:center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom:20px;}
         .pricing-title {font-size:1.4rem; font-weight:700; color:#1e293b; margin-bottom:10px;}
         .pricing-price {font-size:1.6rem; font-weight:600; color:#2563eb; margin-bottom:15px;}
         .pricing-desc {font-size:0.9rem; color:#64748b; margin-bottom:10px;}
@@ -418,17 +394,17 @@ with tabs[4]:
 
     st.markdown(f"""
     <div class='pricing-card'>
-        <div class='pricing-title'>Basic Plan</div>
+        <div class='pricing-title'>베이직 플랜</div>
         <div class='pricing-price'>₩{st.session_state.price_basic:,} / 월</div>
         <div class='pricing-desc'>소규모 팀용 • 기본 매칭·추출</div>
     </div>
     <div class='pricing-card'>
-        <div class='pricing-title'>Professional Plan</div>
+        <div class='pricing-title'>프로페셔널 플랜</div>
         <div class='pricing-price'>₩{st.session_state.price_pro:,} / 월</div>
         <div class='pricing-desc'>중간 규모 기업 • 고급 매칭·분석</div>
     </div>
     <div class='pricing-card'>
-        <div class='pricing-title'>Enterprise Plan</div>
+        <div class='pricing-title'>엔터프라이즈 플랜</div>
         <div class='pricing-price'>₩{st.session_state.price_enterprise:,} / 연</div>
         <div class='pricing-desc'>대기업 • 무제한·전용 API·SLA</div>
     </div>
