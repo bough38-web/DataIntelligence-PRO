@@ -471,6 +471,9 @@ def show_main_app():
             users_list = database.get_all_users()
             if users_list:
                 df = pd.DataFrame(users_list)
+                # 데이터 타입 호환성을 위해 expiry를 날짜 객체로 변환
+                df['expiry'] = pd.to_datetime(df['expiry']).dt.date
+                
                 # 표시할 열 설정 및 편집 가능 여부 설정
                 df = df[['id', 'name', 'phone', 'license', 'expiry', 'role', 'created_at']]
                 
